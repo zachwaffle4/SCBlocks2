@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "redone-systemcore-blocks-interface",
+  "name": "scblocks2",
   // Set this to today's date
   "compatibility_date": "2026-07-07",
   "assets": {
