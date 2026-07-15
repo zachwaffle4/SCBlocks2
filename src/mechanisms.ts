@@ -1,9 +1,10 @@
 import * as Blockly from 'blockly';
-import {getDevice, serializeMotorGroupConfig} from './devices';
+import {getDevice} from './devices';
 import type {WorkspaceState} from './opmodes';
 
 /**
- * A project-level commands3 subsystem made from one or more A301 motors.
+ * A project-level commands2 subsystem made from one or more A301 motors and
+ * any sensors or named RobotPy objects used by its event workspace.
  *
  * The stable ids are intentional: a block continues to point at the same
  * mechanism when its display name changes, and a removed mechanism remains
@@ -70,10 +71,102 @@ type SerializedBlock = {
   next?: {block?: SerializedBlock};
 };
 
+const numberShadow = (value: number): SerializedBlock => ({
+  type: 'math_number',
+  fields: {NUM: value},
+});
+
+const numericSensorCondition = (sensor: SerializedBlock): SerializedBlock => ({
+  type: 'logic_compare',
+  fields: {OP: 'GT'},
+  inputs: {
+    A: {block: sensor},
+    B: {shadow: numberShadow(0)},
+  },
+});
+
 /**
- * Replaces the short-lived implicit subsystem motor commands with an explicit
- * group made from that subsystem's selected motors. This keeps existing saved
- * advanced projects editable after the block is removed from the palette.
+ * Blockly requires Boolean sockets to contain Boolean-producing blocks. Older
+ * mechanism workspaces could put the numeric A301 sensor block directly into
+ * `wait until` or `if`, so repair those saved states before loading them.
+ */
+const migrateSensorConditions = (block: SerializedBlock) => {
+  const inputs = block.inputs || {};
+  const conditionNames =
+    block.type === 'sc_wait_until'
+      ? ['CONDITION']
+      : block.type === 'sc_if'
+        ? Object.keys(inputs).filter((name) => /^IF\d+$/.test(name))
+        : [];
+  for (const name of conditionNames) {
+    const input = inputs[name];
+    if (input?.block?.type === 'sc_a301_sensor_value') {
+      input.block = numericSensorCondition(input.block);
+    }
+    if (input?.shadow?.type === 'sc_a301_sensor_value') {
+      input.shadow = numericSensorCondition(input.shadow);
+    }
+  }
+};
+
+const legacyMotorIds = (value: unknown) => {
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const directMotorCommands = (
+  type: 'sc_motor_group_set_power' | 'sc_motor_group_stop' | 'sc_subsystem_set_power' | 'sc_subsystem_stop',
+  block: SerializedBlock,
+  mechanismMotorIds: string[],
+) => {
+  const group = block.inputs?.GROUP?.block;
+  const requestedMotorIds = type.startsWith('sc_motor_group')
+    ? legacyMotorIds(group?.fields?.MOTORS)
+    : mechanismMotorIds;
+  const motorIds = requestedMotorIds.filter(
+    (id) => mechanismMotorIds.indexOf(id) !== -1,
+  );
+  const next = block.next;
+  const commands: SerializedBlock[] = motorIds.map((id) => ({
+    type: type.endsWith('set_power')
+      ? 'sc_motor_set_power'
+      : 'sc_motor_stop',
+    fields: {DEVICE: id},
+    ...(type.endsWith('set_power') && block.inputs?.POWER
+      ? {inputs: {POWER: block.inputs.POWER}}
+      : {}),
+  }));
+
+  if (!commands.length) {
+    // A removed or empty group used to be a no-op. Preserve that behavior with
+    // a valid command block so old workspaces can still load and be edited.
+    Object.assign(block, {
+      type: 'sc_wait_seconds',
+      fields: undefined,
+      inputs: {SECONDS: {shadow: {type: 'math_number', fields: {NUM: 0}}}},
+      next,
+    });
+    return;
+  }
+
+  for (let index = 0; index < commands.length - 1; index += 1) {
+    commands[index].next = {block: commands[index + 1]};
+  }
+  commands[commands.length - 1].next = next;
+  Object.assign(block, commands[0]);
+};
+
+/**
+ * The temporary motor-group surface has been retired. Convert its saved
+ * commands to the mechanism's ordinary per-motor blocks so existing projects
+ * stay editable without keeping the old block types in the toolbox.
  */
 const migrateSubsystemState = (
   state: WorkspaceState,
@@ -82,29 +175,19 @@ const migrateSubsystemState = (
   const migrated = JSON.parse(JSON.stringify(state ?? {})) as WorkspaceState;
   const visit = (block: SerializedBlock | undefined) => {
     if (!block) return;
-    if (block.type === 'sc_subsystem_set_power') {
-      block.type = 'sc_motor_group_set_power';
-      block.inputs = {
-        ...(block.inputs || {}),
-        GROUP: {
-          block: {
-            type: 'sc_motor_group',
-            fields: {MOTORS: serializeMotorGroupConfig(motorIds)},
-          },
-        },
-      };
-    } else if (block.type === 'sc_subsystem_stop') {
-      block.type = 'sc_motor_group_stop';
-      block.inputs = {
-        ...(block.inputs || {}),
-        GROUP: {
-          block: {
-            type: 'sc_motor_group',
-            fields: {MOTORS: serializeMotorGroupConfig(motorIds)},
-          },
-        },
-      };
+    if (
+      block.type === 'sc_subsystem_set_power' ||
+      block.type === 'sc_subsystem_stop' ||
+      block.type === 'sc_motor_group_set_power' ||
+      block.type === 'sc_motor_group_stop'
+    ) {
+      directMotorCommands(block.type, block, motorIds);
+    } else if (block.type === 'sc_motor_group') {
+      block.type = 'math_number';
+      block.fields = {NUM: 0};
+      block.inputs = undefined;
     }
+    migrateSensorConditions(block);
     const inputs = block.inputs || {};
     for (const name of Object.keys(inputs)) {
       const input = inputs[name];

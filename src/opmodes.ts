@@ -8,7 +8,11 @@
  */
 import * as Blockly from 'blockly';
 import {pythonGenerator} from 'blockly/python';
-import {generateMechanismDefinitions, generateOpmodeClass} from './generators/python';
+import {
+  generateMechanismDefinitions,
+  generateOpmodeClass,
+  getGeneratedMechanismImports,
+} from './generators/python';
 import {getMechanisms} from './mechanisms';
 import {getRobotMode} from './robotMode';
 
@@ -111,8 +115,61 @@ const sensorGreaterThanZeroBlock = (
   },
 });
 
+const legacyMotorGroupIds = (value: unknown) => {
+  if (typeof value !== 'string') return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === 'string')
+      : [];
+  } catch {
+    return [];
+  }
+};
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
+
+const migrateMotorGroupCommand = (block: SerializedBlock) => {
+  const group = block.inputs?.GROUP?.block || block.inputs?.GROUP?.shadow;
+  const motorIds = legacyMotorGroupIds(group?.fields?.MOTORS);
+  const next = block.next;
+  const isPowerCommand = block.type === 'sc_motor_group_set_power';
+  const commands: SerializedBlock[] = motorIds.map((id) => ({
+    type: isPowerCommand ? 'sc_motor_set_power' : 'sc_motor_stop',
+    fields: {DEVICE: id},
+    ...(isPowerCommand && block.inputs?.POWER
+      ? {inputs: {POWER: clone(block.inputs.POWER)}}
+      : {}),
+  }));
+  if (!commands.length) {
+    Object.assign(block, {
+      type: 'sc_wait_seconds',
+      fields: undefined,
+      inputs: {SECONDS: {shadow: numberShadow(0)}},
+      next,
+    });
+    return;
+  }
+  for (let index = 0; index < commands.length - 1; index += 1) {
+    commands[index].next = {block: commands[index + 1]};
+  }
+  commands[commands.length - 1].next = next;
+  Object.assign(block, commands[0]);
+};
+
 const migrateSerializedBlock = (block: SerializedBlock | undefined) => {
   if (!block) return;
+
+  if (
+    block.type === 'sc_motor_group_set_power' ||
+    block.type === 'sc_motor_group_stop'
+  ) {
+    migrateMotorGroupCommand(block);
+  } else if (block.type === 'sc_motor_group') {
+    block.type = 'math_number';
+    block.fields = {NUM: 0};
+    block.inputs = undefined;
+  }
 
   const inputs = block.inputs ?? {};
   const condition = inputs.CONDITION;
@@ -216,6 +273,14 @@ export const generateAllOpmodes = (tabs: OpModeTab[]): string => {
 
   if (!classes.length) return '';
 
+  // Mechanism workspaces can use the same sensors and expressions as OpModes.
+  // Their definitions are generated separately, so collect their import needs
+  // before writing the one shared file header.
+  const mechanisms = generateMechanismDefinitions();
+  for (const line of getGeneratedMechanismImports()) extraImports.add(line);
+  if (mechanisms.includes('math.')) extraImports.add('import math');
+  if (mechanisms.includes('rev.')) extraImports.add('import rev');
+
   const importLines = [...BASE_IMPORT_LINES];
   for (const line of extraImports) {
     if (importLines.indexOf(line) === -1) importLines.push(line);
@@ -234,6 +299,5 @@ export const generateAllOpmodes = (tabs: OpModeTab[]): string => {
     );
   }
 
-  const mechanisms = generateMechanismDefinitions();
   return `${importLines.join('\n')}\n\n${mechanisms ? `${mechanisms}\n\n\n` : ''}${classes.join('\n\n\n')}\n`;
 };

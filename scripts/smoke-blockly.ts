@@ -5,7 +5,6 @@ import {blocks} from '../src/blocks/text';
 import {
   addDevice,
   registerDeviceField,
-  serializeMotorGroupConfig,
   serializeMovementMotorsConfig,
   setDevices,
 } from '../src/devices';
@@ -125,6 +124,25 @@ assert(
 );
 assertIncludes(withinCode[0], 'abs((12) - (10)) <= abs(2)');
 withinBlock.dispose(true);
+
+// Deadline groups run both branches together but finish with the designated
+// deadline branch.
+const deadlineBlock = workspace.newBlock('sc_deadline_commands');
+const deadlineWait = workspace.newBlock('sc_wait_seconds');
+connectValue(deadlineWait, 'SECONDS', numberBlock(2));
+const deadlineMotor = workspace.newBlock('sc_motor_set_power');
+setDevice(deadlineMotor);
+connectValue(deadlineMotor, 'POWER', numberBlock(40));
+connectStatement(deadlineBlock, 'DEADLINE', deadlineWait);
+connectStatement(deadlineBlock, 'OTHER', deadlineMotor);
+pythonGenerator.init(workspace);
+const deadlineCode = pythonGenerator.blockToCode(deadlineBlock);
+assertIncludes(
+  String(deadlineCode),
+  'ParallelDeadlineGroup(SequentialCommandGroup(WaitCommand(2)),',
+);
+assertIncludes(String(deadlineCode), 'SequentialCommandGroup(InstantCommand(self.block_');
+deadlineBlock.dispose(true);
 
 // ---------------------------------------------------------------------------
 // Contextual if: command stacks compose Commands2 ConditionalCommands, while
@@ -836,57 +854,47 @@ const legacySubsystem = addMechanism({
 const migratedLegacyState = JSON.stringify(legacySubsystem.state);
 assert(
   !migratedLegacyState.includes('sc_subsystem_set_power') &&
-    !migratedLegacyState.includes('sc_subsystem_stop'),
-  'Saved implicit subsystem-motor blocks should migrate to explicit groups',
+    !migratedLegacyState.includes('sc_subsystem_stop') &&
+    !migratedLegacyState.includes('sc_motor_group'),
+  'Saved subsystem motor blocks should migrate to direct motor commands',
 );
-assertIncludes(migratedLegacyState, 'sc_motor_group_set_power');
+assertIncludes(migratedLegacyState, 'sc_motor_set_power');
+assertIncludes(migratedLegacyState, 'sc_motor_stop');
 assertIncludes(migratedLegacyState, device.id);
 assertIncludes(migratedLegacyState, rightMotor.id);
 setMechanisms([]);
+setExtensionInstances([]);
+const intakeTimer = addExtensionInstance({
+  className: 'wpilib.Timer',
+  name: 'intake_timer',
+});
 const intake = addMechanism({
   name: 'intake',
   motorIds: [device.id, rightMotor.id],
 });
-const makeMotorGroup = (targetWorkspace: Blockly.Workspace) => {
-  const group = targetWorkspace.newBlock('sc_motor_group');
-  group.setFieldValue(
-    serializeMotorGroupConfig([device.id, rightMotor.id]),
-    'MOTORS',
-  );
-  return group;
-};
 const subsystemWorkspace = new Blockly.Workspace();
 const subsystemStart = subsystemWorkspace.newBlock('sc_subsystem_on_start');
-const subsystemStartPower = subsystemWorkspace.newBlock('sc_motor_group_set_power');
-connectValue(subsystemStartPower, 'GROUP', makeMotorGroup(subsystemWorkspace));
+const subsystemStartPower = subsystemWorkspace.newBlock('sc_motor_set_power');
+subsystemStartPower.setFieldValue(device.id, 'DEVICE');
 connectValue(subsystemStartPower, 'POWER', numberBlock(15, subsystemWorkspace));
 connectNext(subsystemStart, subsystemStartPower);
 const subsystemCommand = subsystemWorkspace.newBlock('sc_subsystem_on_command');
 subsystemCommand.setFieldValue('intake_piece', 'COMMAND');
-const subsystemPower = subsystemWorkspace.newBlock('sc_motor_group_set_power');
-connectValue(subsystemPower, 'GROUP', makeMotorGroup(subsystemWorkspace));
+const waitForPiece = subsystemWorkspace.newBlock('sc_wait_until');
+const beamBreak = subsystemWorkspace.newBlock('sc_wpilib_digital_input');
+beamBreak.setFieldValue('0', 'CHANNEL');
+connectValue(waitForPiece, 'CONDITION', beamBreak);
+const subsystemPower = subsystemWorkspace.newBlock('sc_motor_set_power');
+subsystemPower.setFieldValue(device.id, 'DEVICE');
 connectValue(subsystemPower, 'POWER', numberBlock(65, subsystemWorkspace));
-const subsystemStop = subsystemWorkspace.newBlock('sc_motor_group_stop');
-connectValue(subsystemStop, 'GROUP', makeMotorGroup(subsystemWorkspace));
-connectNext(subsystemCommand, subsystemPower);
-subsystemPower.nextConnection!.connect(subsystemStop.previousConnection!);
-const subsystemMotorPower = subsystemWorkspace.newBlock('sc_motor_set_power');
-subsystemMotorPower.setFieldValue(device.id, 'DEVICE');
-connectValue(subsystemMotorPower, 'POWER', numberBlock(40, subsystemWorkspace));
-subsystemStop.nextConnection!.connect(subsystemMotorPower.previousConnection!);
-const subsystemMovement = subsystemWorkspace.newBlock('sc_movement_motors');
-subsystemMovement.setFieldValue(
-  serializeMovementMotorsConfig({
-    kind: 'differential',
-    leftDeviceId: device.id,
-    rightDeviceId: rightMotor.id,
-  }),
-  'MOTORS',
-);
-const subsystemDrive = subsystemWorkspace.newBlock('sc_drivetrain_arcade_drive');
-connectValue(subsystemDrive, 'FORWARD', numberBlock(30, subsystemWorkspace));
-connectValue(subsystemDrive, 'TURN', numberBlock(5, subsystemWorkspace));
-subsystemMotorPower.nextConnection!.connect(subsystemDrive.previousConnection!);
+const restartTimer = subsystemWorkspace.newBlock('sc_ext_instance_call');
+restartTimer.setFieldValue('wpilib.Timer', 'CLASS');
+restartTimer.setFieldValue(intakeTimer.id, 'INSTANCE');
+restartTimer.setFieldValue('restart', 'METHOD');
+restartTimer.setFieldValue('', 'ARGS');
+connectNext(subsystemCommand, waitForPiece);
+waitForPiece.nextConnection!.connect(subsystemPower.previousConnection!);
+subsystemPower.nextConnection!.connect(restartTimer.previousConnection!);
 updateMechanism(intake.id, {
   state: Blockly.serialization.workspaces.save(subsystemWorkspace),
 });
@@ -901,7 +909,9 @@ runIntake.setFieldValue('intake_piece', 'COMMAND');
 connectNext(mechanismStart, runIntake);
 pythonGenerator.init(mechanismWorkspace);
 const mechanismCode = generateOpmodeClass(mechanismWorkspace, pythonGenerator);
-assertIncludes(mechanismCode, 'self.intake = IntakeSubsystem()');
+assertIncludes(mechanismCode, 'self.digital_input_0 = wpilib.DigitalInput(0)');
+assertIncludes(mechanismCode, 'self.intake_timer = wpilib.Timer()');
+assertIncludes(mechanismCode, 'self.intake = IntakeSubsystem(self.digital_input_0, self.intake_timer)');
 assertIncludes(mechanismCode, 'self.intake.on_start()');
 assertIncludes(mechanismCode, 'self.intake.command_intake_piece()');
 const mechanismFile = generateAllOpmodes([
@@ -911,7 +921,9 @@ assertIncludes(mechanismFile, 'class IntakeSubsystem(Mechanism):');
 assertIncludes(mechanismFile, 'self.drive_motor = A301(0, 3)');
 assertIncludes(mechanismFile, 'self.right_motor = A301(2, 4)');
 assertIncludes(mechanismFile, 'self._motors = [self.drive_motor, self.right_motor]');
-assertIncludes(mechanismFile, 'self.movement_drive = wpilib.DifferentialDrive(');
+assertIncludes(mechanismFile, 'def __init__(self, resource_digital_input_0, resource_intake_timer):');
+assertIncludes(mechanismFile, 'self.digital_input_0 = resource_digital_input_0');
+assertIncludes(mechanismFile, 'self.intake_timer = resource_intake_timer');
 assertIncludes(mechanismFile, 'def on_start(self):');
 assertIncludes(mechanismFile, 'def command_intake_piece(self):');
 assertIncludes(mechanismFile, 'def set_motor_group_power(self, motors, power):');
@@ -930,15 +942,19 @@ assert(
   'Advanced OpMode toolbox should not bypass owned subsystem motors',
 );
 const subsystemToolbox = JSON.stringify(
-  buildToolbox({includeGamepad: false, editor: 'subsystem', robotMode: 'advanced'}),
+  buildToolbox({
+    includeGamepad: false,
+    includeWpilibSensors: true,
+    includeWpilibOutputs: true,
+    includeRevSensors: true,
+    editor: 'subsystem',
+    robotMode: 'advanced',
+  }),
 );
 assertIncludes(subsystemToolbox, 'sc_subsystem_on_command');
-assertIncludes(subsystemToolbox, 'sc_motor_group');
-assertIncludes(subsystemToolbox, 'sc_motor_group_set_power');
-assertIncludes(subsystemToolbox, 'sc_motor_group_stop');
 assert(
-  !subsystemToolbox.includes('sc_subsystem_set_power'),
-  'Subsystem toolbox should not expose an implicit “my motors” command',
+  !subsystemToolbox.includes('sc_motor_group'),
+  'Mechanism toolboxes should not expose the retired motor-group blocks',
 );
 assertIncludes(subsystemToolbox, 'sc_motor_set_power');
 assertIncludes(subsystemToolbox, 'sc_motor_run_for_seconds');
@@ -951,6 +967,16 @@ assertIncludes(subsystemToolbox, 'sc_drivetrain_tank_drive');
 assertIncludes(subsystemToolbox, 'sc_drivetrain_stop');
 assertIncludes(subsystemToolbox, 'sc_mecanum_drive');
 assertIncludes(subsystemToolbox, 'sc_mecanum_stop');
+assertIncludes(subsystemToolbox, 'sc_a301_sensor_value');
+assertIncludes(subsystemToolbox, 'WPILib Sensors');
+assertIncludes(subsystemToolbox, 'sc_wpilib_digital_input');
+assert(
+  !subsystemToolbox.includes('sc_wpilib_digital_input_trigger'),
+  'Mechanisms should use sensor values in command logic instead of OpMode trigger hats',
+);
+assertIncludes(subsystemToolbox, 'WPILib Outputs');
+assertIncludes(subsystemToolbox, 'REV Sensors');
+assertIncludes(subsystemToolbox, 'SYSTEMCORE_EXTENSIONS');
 subsystemWorkspace.dispose();
 mechanismWorkspace.dispose();
 setMechanisms([]);

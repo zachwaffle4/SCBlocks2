@@ -33,11 +33,15 @@
 }
 
 #blocklyDiv .blocklyToolboxDiv {
+  width: min(220px, 28vw);
+  max-width: 220px;
   border-right: 1px solid rgb(226, 232, 240);
   box-shadow: 10px 0 24px rgba(15, 23, 42, 0.05);
   padding: 8px 6px;
 }
-
+.blocklyToolboxFlyout {
+  max-width: 320px;
+}
 #blocklyDiv .blocklyToolboxCategoryGroup {
   display: flex;
   flex-direction: column;

@@ -7,6 +7,10 @@ import { createHighlighterCore, type HighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
 import pythonLang from "shiki/langs/python.mjs";
 import lightTheme from "shiki/themes/material-theme-lighter.mjs";
+import {
+  registerSystemCoreRenderer,
+  systemCoreRendererName,
+} from "./blocklyRenderer";
 import { systemCoreTheme } from "./blocklyTheme";
 import { blocks } from "./blocks/text";
 import {
@@ -917,6 +921,7 @@ const syncToolboxForActive = () => {
 
 onMounted(() => {
   registerBlockly();
+  registerSystemCoreRenderer();
 
   if (!blocklyDiv.value) {
     throw new Error(`div with id 'blocklyDiv' not found`);
@@ -930,7 +935,7 @@ onMounted(() => {
   // real toolbox is applied. We register them, then swap in the full toolbox.
   workspace = Blockly.inject(blocklyDiv.value, {
     toolbox: { kind: "categoryToolbox", contents: [] },
-    renderer: "zelos",
+    renderer: systemCoreRendererName,
     theme: systemCoreTheme,
     trashcan: true,
     zoom: {
@@ -1425,7 +1430,7 @@ onBeforeUnmount(() => {
                 <p class="text-xs font-black uppercase tracking-wide text-primary-700">Step 2</p>
                 <h2 id="robot-parts-heading" class="text-base font-black text-slate-900">Make robot parts</h2>
                 <p class="mt-0.5 max-w-xl text-xs font-semibold leading-5 text-slate-500">
-                  A robot part (also called a subsystem) is a group of motors that work together, like an intake, arm, or launcher. It gets its own Blocks tab.
+                  A robot part (also called a subsystem) owns the motors, sensors, and RobotPy objects that work together, like an intake, arm, or launcher. It gets its own Blocks tab.
                 </p>
               </div>
               <UButton size="sm" color="primary" @click="addProjectMechanism">+ Add robot part</UButton>
@@ -1444,7 +1449,7 @@ onBeforeUnmount(() => {
             <div v-else-if="!mechanisms.length" class="rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/60 p-5 text-center">
               <p class="text-sm font-black text-slate-900">Make your first robot part</p>
               <p class="mx-auto mt-1 max-w-md text-xs font-semibold leading-5 text-slate-600">
-                For example, make an Intake part and check the motor that spins it.
+                For example, make an Intake part, check its motor, then use the Sensing and Extensions drawers to build its command logic.
               </p>
               <UButton class="mt-3" size="sm" color="primary" @click="addProjectMechanism">Make a robot part</UButton>
             </div>
@@ -1484,7 +1489,7 @@ onBeforeUnmount(() => {
                 <fieldset class="mt-3">
                   <legend class="text-xs font-black text-slate-700">Which motors move this part?</legend>
                   <p class="mt-0.5 text-xs font-semibold leading-5 text-slate-500">
-                    Check every motor that belongs here. You can change this any time.
+                    Check every motor that belongs here. Sensors and named RobotPy objects used in this part are wired automatically from its Blocks workspace.
                   </p>
                   <div class="mt-2 grid gap-2 sm:grid-cols-2">
                     <UCheckbox

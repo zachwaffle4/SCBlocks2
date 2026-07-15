@@ -11,7 +11,6 @@ import {
   getDevice,
   getDevices,
   normalizeMovementMotorsConfig,
-  parseMotorGroupConfig,
   parseMovementMotorsConfig,
   type MovementMotorsConfig,
 } from '../devices';
@@ -33,6 +32,11 @@ import {
 export const forBlock = Object.create(null);
 
 type GeneratorDefinitions = {definitions_: Record<string, string>};
+
+let generatedMechanismImports = new Set<string>();
+
+export const getGeneratedMechanismImports = () =>
+  [...generatedMechanismImports];
 
 export const registerPythonImport = (
   generator: PythonGenerator,
@@ -106,25 +110,6 @@ const deviceName = (block: Blockly.Block, _generator: PythonGenerator) =>
 const deviceReference = (block: Blockly.Block, generator: PythonGenerator) =>
   `self.${safePythonIdentifier(deviceName(block, generator), 'drive_motor')}`;
 
-// A group inside a subsystem may only reference its owned motors. The field
-// keeps an out-of-scope selection visible so the student can remove it, while
-// generation omits it instead of producing a reference the subsystem lacks.
-let generatingSubsystemMotorIds: ReadonlySet<string> | null = null;
-
-const motorGroupExpression = (block: Blockly.Block) => {
-  const motorIds = parseMotorGroupConfig(block.getFieldValue('MOTORS'));
-  const motors = motorIds
-    .filter(
-      (id) =>
-        generatingSubsystemMotorIds === null ||
-        generatingSubsystemMotorIds.has(id),
-    )
-    .map((id) => getDevice(id))
-    .filter((device): device is NonNullable<typeof device> => Boolean(device))
-    .map((device) => `self.${safePythonIdentifier(device.name, 'motor')}`);
-  return motors.length === 1 ? `(${motors[0]},)` : `(${motors.join(', ')})`;
-};
-
 const valueToCode = (
   block: Blockly.Block,
   generator: PythonGenerator,
@@ -189,12 +174,12 @@ const registerBlockMethod = (statement: string, baseName = 'block'): string => {
   if (!cleanBaseName.startsWith('block_')) {
     cleanBaseName = `block_${cleanBaseName}`;
   }
-  
+
   const count = (blockMethodNameCounts.get(cleanBaseName) || 0) + 1;
   blockMethodNameCounts.set(cleanBaseName, count);
-  
+
   const name = count > 1 ? `${cleanBaseName}_${count}` : cleanBaseName;
-  
+
   blockMethodBodies.push(`    async def ${name}(self):\n${indentCode(statement.trim() ? statement : 'pass\n', 8)}`);
   return `self.${name}`;
 };
@@ -362,8 +347,80 @@ const extensionInstancePythonNames = () => {
 const extensionInstanceClassExpression = (instance: ExtensionInstance) =>
   instance.className;
 
+export const extensionInstancePythonName = (instance: ExtensionInstance) =>
+  extensionInstancePythonNames().get(instance.id) ||
+  safePythonIdentifier(instance.name, 'object');
+
 export const extensionInstanceReference = (instance: ExtensionInstance) =>
-  `self.${extensionInstancePythonNames().get(instance.id) || safePythonIdentifier(instance.name, 'object')}`;
+  `self.${extensionInstancePythonName(instance)}`;
+
+type MechanismResources = {
+  sensors: SensorInitializer[];
+  extensions: ExtensionInstance[];
+};
+
+type MechanismResourceBinding = {
+  parameter: string;
+  target: string;
+};
+
+const mechanismResources = (mechanism: Mechanism): MechanismResources => {
+  const workspace = new Blockly.Workspace();
+  try {
+    Blockly.serialization.workspaces.load(mechanism.state, workspace);
+    const extensionIds = new Set<string>();
+    for (const type of ['sc_ext_instance_call', 'sc_ext_instance_value']) {
+      for (const block of workspace.getBlocksByType(type, false)) {
+        const instanceId = block.getFieldValue('INSTANCE');
+        if (instanceId) extensionIds.add(instanceId);
+      }
+    }
+    // Keep pre-instance projects working when an older mechanism used the
+    // free-text extension block with a straightforward `self.object` target.
+    // New blocks use stable INSTANCE ids; this is only a narrow compatibility
+    // fallback and does not reintroduce the old block surface to the toolbox.
+    for (const type of ['sc_ext_call', 'sc_ext_value']) {
+      for (const block of workspace.getBlocksByType(type, false)) {
+        const target = String(block.getFieldValue('TARGET') || '').trim();
+        const name = target.startsWith('self.') ? target.slice(5) : '';
+        const instance = getExtensionInstances().find(
+          (candidate) => candidate.name === name,
+        );
+        if (instance) extensionIds.add(instance.id);
+      }
+    }
+    return {
+      sensors: [...sensorInitializers(workspace).values()],
+      extensions: getExtensionInstances().filter((instance) => extensionIds.has(instance.id)),
+    };
+  } catch (error) {
+    console.warn(`Skipping invalid mechanism resources for ${mechanism.name}:`, error);
+    return {sensors: [], extensions: []};
+  } finally {
+    workspace.dispose();
+  }
+};
+
+const mechanismResourceBindings = (resources: MechanismResources) => {
+  const bindings: MechanismResourceBinding[] = [];
+  const targets = new Set<string>();
+  const parameters = new Set<string>();
+  const add = (target: string) => {
+    if (targets.has(target)) return;
+    targets.add(target);
+    const base = `resource_${safePythonIdentifier(target, 'object')}`;
+    let parameter = base;
+    let suffix = 2;
+    while (parameters.has(parameter)) parameter = `${base}_${suffix++}`;
+    parameters.add(parameter);
+    bindings.push({parameter, target});
+  };
+  for (const sensor of resources.sensors) add(sensor.name);
+  for (const instance of resources.extensions) {
+    add(extensionInstancePythonName(instance));
+  }
+  return bindings;
+};
 
 const subsystemEventStacks = (mechanism: Mechanism) => {
   const workspace = new Blockly.Workspace();
@@ -371,9 +428,7 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
   let startCommands: string[] = [];
   let drivetrain: DrivetrainConfig | null = null;
   const previousGeneratingSubsystemCommand = generatingSubsystemCommand;
-  const previousGeneratingSubsystemMotorIds = generatingSubsystemMotorIds;
   generatingSubsystemCommand = true;
-  generatingSubsystemMotorIds = new Set(mechanism.motorIds);
   try {
     Blockly.serialization.workspaces.load(mechanism.state, workspace);
     pythonGenerator.init(workspace);
@@ -389,11 +444,15 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
         commandStacks.set(command, commandLinesForNext(hat, pythonGenerator, command));
       }
     }
+    const definitions = (pythonGenerator as unknown as GeneratorDefinitions)
+      .definitions_;
+    for (const key of Object.keys(definitions)) {
+      if (key.startsWith('import_')) generatedMechanismImports.add(definitions[key]);
+    }
   } catch (error) {
     console.warn(`Skipping invalid subsystem workspace for ${mechanism.name}:`, error);
   } finally {
     generatingSubsystemCommand = previousGeneratingSubsystemCommand;
-    generatingSubsystemMotorIds = previousGeneratingSubsystemMotorIds;
     workspace.dispose();
   }
   return {startCommands, commandStacks, drivetrain};
@@ -405,23 +464,28 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
  * reusable Command factories on this class.
  */
 export const generateMechanismDefinitions = () => {
+  generatedMechanismImports = new Set<string>();
   if (getRobotMode() !== 'advanced') return '';
   const definitions: string[] = [];
   const names = mechanismPythonNames();
   for (const mechanism of getMechanisms()) {
     resetBlockMethods();
     const events = subsystemEventStacks(mechanism);
+    const bindings = mechanismResourceBindings(mechanismResources(mechanism));
     const motors = mechanismDevices(mechanism);
     const motorReferences = motors.map(
       (motor) => `self.${safePythonIdentifier(motor.name, 'motor')}`,
     );
     definitions.push(
       `class ${mechanismClassName(names.get(mechanism.id) || mechanism.name)}(Mechanism):`,
-      '    def __init__(self):',
+      `    def __init__(self${bindings.map(({parameter}) => `, ${parameter}`).join('')}):`,
       `        super().__init__("${mechanismClassName(names.get(mechanism.id) || mechanism.name)}")`,
       ...motors.map(
         (motor) =>
           `        self.${safePythonIdentifier(motor.name, 'motor')} = A301(${motor.deviceId}, ${motor.bus})`,
+      ),
+      ...bindings.map(
+        ({parameter, target}) => `        self.${target} = ${parameter}`,
       ),
       `        self._motors = [${motorReferences.join(', ')}]`,
       ...(events.drivetrain ? drivetrainInitLines(events.drivetrain) : []),
@@ -432,10 +496,6 @@ export const generateMechanismDefinitions = () => {
       '',
       '    def stop(self):',
       '        self.set_power(0)',
-      '',
-      '    def set_motor_group_power(self, motors, power):',
-      '        for motor in motors:',
-      '            motor.setThrottle(power)',
       '',
       '    def on_start(self):',
       `        return ${commandGroupExpression(events.startCommands)}`,
@@ -724,14 +784,16 @@ const revColorSensorSeesColorExpression = (block: Blockly.Block) => {
   ].join(' and ');
 };
 
-const sensorInitLines = (
-  workspace: Blockly.Workspace,
-  generator: PythonGenerator,
-) => {
-  const lines = new Map<string, string>();
+type SensorInitializer = {
+  name: string;
+  expression: string;
+};
+
+const sensorInitializers = (workspace: Blockly.Workspace) => {
+  const initializers = new Map<string, SensorInitializer>();
   const add = (name: string, expression: string) => {
-    if (!lines.has(name)) {
-      lines.set(name, `        self.${name} = ${expression}`);
+    if (!initializers.has(name)) {
+      initializers.set(name, {name, expression});
     }
   };
 
@@ -818,7 +880,6 @@ const sensorInitLines = (
     'sc_rev_color_sensor_proximity_trigger',
   ]) {
     for (const block of workspace.getBlocksByType(type, false)) {
-      registerPythonImport(generator, 'rev');
       const key = i2cPortKey(block);
       add(
         `rev_color_sensor_${key}`,
@@ -827,7 +888,26 @@ const sensorInitLines = (
     }
   }
 
-  return [...lines.values()];
+  return initializers;
+};
+
+const sensorInitLines = (
+  workspace: Blockly.Workspace,
+  generator: PythonGenerator,
+  extraInitializers: Iterable<SensorInitializer> = [],
+) => {
+  const initializers = sensorInitializers(workspace);
+  for (const initializer of extraInitializers) {
+    if (!initializers.has(initializer.name)) {
+      initializers.set(initializer.name, initializer);
+    }
+  }
+  if ([...initializers.values()].some(({expression}) => expression.startsWith('rev.'))) {
+    registerPythonImport(generator, 'rev');
+  }
+  return [...initializers.values()].map(
+    ({name, expression}) => `        self.${name} = ${expression}`,
+  );
 };
 
 const buildTriggerLines = (
@@ -932,6 +1012,30 @@ export const generateOpmodeClass = (
     decorators.push(`@${OPMODE_TYPE_TO_DECORATOR[type] || 'teleop'}`);
   }
 
+  const advancedMechanisms =
+    getRobotMode() === 'advanced' ? [...getMechanisms()] : [];
+  const advancedMechanismResources = new Map<string, MechanismResources>();
+  for (const mechanism of advancedMechanisms) {
+    advancedMechanismResources.set(mechanism.id, mechanismResources(mechanism));
+  }
+  const mechanismBindings = new Map<string, MechanismResourceBinding[]>(
+    advancedMechanisms.map((mechanism) => [
+      mechanism.id,
+      mechanismResourceBindings(
+        advancedMechanismResources.get(mechanism.id) || {
+          sensors: [],
+          extensions: [],
+        },
+      ),
+    ]),
+  );
+  const mechanismSensorInitializers: SensorInitializer[] = [];
+  for (const mechanism of advancedMechanisms) {
+    mechanismSensorInitializers.push(
+      ...(advancedMechanismResources.get(mechanism.id)?.sensors || []),
+    );
+  }
+
   const initBody: string[] = ['        super().__init__()'];
   initBody.push('');
   for (const gamepad of gamepadsInWorkspace(workspace)) {
@@ -939,7 +1043,9 @@ export const generateOpmodeClass = (
       `        self.gamepad${gamepad} = wpilib.Gamepad(${gamepadPort(gamepad)})`,
     );
   }
-  initBody.push(...sensorInitLines(workspace, generator));
+  initBody.push(
+    ...sensorInitLines(workspace, generator, mechanismSensorInitializers),
+  );
   // Simple mode exposes motors directly to OpMode blocks. Advanced mode moves
   // construction into the owning subsystem class instead.
   if (getRobotMode() === 'simple') {
@@ -957,12 +1063,13 @@ export const generateOpmodeClass = (
       `        self.${name} = ${extensionInstanceClassExpression(instance)}(${instance.args})`,
     );
   }
-  if (getRobotMode() === 'advanced') {
+  if (advancedMechanisms.length) {
     const mechanismNames = mechanismPythonNames();
-    for (const mechanism of getMechanisms()) {
+    for (const mechanism of advancedMechanisms) {
       const name = mechanismNames.get(mechanism.id) || 'mechanism';
+      const bindings = mechanismBindings.get(mechanism.id) || [];
       initBody.push(
-        `        self.${name} = ${mechanismClassName(name)}()`,
+        `        self.${name} = ${mechanismClassName(name)}(${bindings.map(({target}) => `self.${target}`).join(', ')})`,
       );
       // Each subsystem's "when this subsystem starts" event runs beside the
       // OpMode's own start hats, just like separate Scratch event scripts.
@@ -1183,6 +1290,19 @@ forBlock['sc_race_commands'] = function (
   const secondCommands = generator.statementToCode(block, 'SECOND') || `${generator.INDENT}pass\n`;
   const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
   return `async def _race_${id}_0():\n${firstCommands}async def _race_${id}_1():\n${secondCommands}await await_any([Command.no_requirements().executing(_race_${id}_0).named("race_0"), Command.no_requirements().executing(_race_${id}_1).named("race_1")])\n`;
+};
+
+forBlock['sc_deadline_commands'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const deadlineCommands = commandLinesForStatement(
+    block,
+    generator,
+    'DEADLINE',
+  );
+  const otherCommands = commandLinesForStatement(block, generator, 'OTHER');
+  return `ParallelDeadlineGroup(${commandGroupExpression(deadlineCommands)}, ${commandGroupExpression(otherCommands)}),\n`;
 };
 
 forBlock['sc_wait_until'] = function (

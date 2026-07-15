@@ -132,30 +132,6 @@ const runMechanismCommandBlock = (): ToolboxBlock => ({
   type: 'sc_mechanism_run_command',
 });
 
-const motorGroupBlock = (): ToolboxBlock => ({
-  kind: 'block',
-  type: 'sc_motor_group',
-});
-
-const motorGroupSetPowerBlock = (): ToolboxBlock => ({
-  kind: 'block',
-  type: 'sc_motor_group_set_power',
-  // An explicit group lives in the command itself, so the user can see and
-  // edit exactly which motors receive the command.
-  inputs: {
-    GROUP: {block: motorGroupBlock()},
-    POWER: {shadow: numberShadow(50)},
-  },
-});
-
-const motorGroupStopBlock = (): ToolboxBlock => ({
-  kind: 'block',
-  type: 'sc_motor_group_stop',
-  inputs: {
-    GROUP: {block: motorGroupBlock()},
-  },
-});
-
 const defaultOpmodeCommandBlock = (robotMode: 'simple' | 'advanced') =>
   robotMode === 'simple' ? runForSecondsBlock() : runMechanismCommandBlock();
 
@@ -567,7 +543,41 @@ const revSensorsCategory = {
   ],
 };
 
-const subsystemToolbox = () => ({
+// Sensor trigger hats are OpMode-level event sources. Mechanisms can still
+// react to the same readings with their `if` and `wait until` command blocks;
+// keeping the hats out here avoids offering an event that has no owner in a
+// subsystem class.
+const mechanismSensorCategory = <T extends {contents: unknown[]}>(
+  category: T,
+) => ({
+  ...category,
+  contents: category.contents.filter(
+    (item) =>
+      [
+        'sc_wpilib_digital_input_trigger',
+        'sc_wpilib_analog_input_trigger',
+        'sc_wpilib_encoder_trigger',
+        'sc_wpilib_imu_trigger',
+        'sc_rev_color_sensor_color_trigger',
+        'sc_rev_color_sensor_proximity_trigger',
+      ].indexOf((item as {type?: string}).type || '') === -1,
+  ),
+});
+
+const mechanismWpilibSensorsCategory = mechanismSensorCategory(
+  wpilibSensorsCategory,
+);
+const mechanismRevSensorsCategory = mechanismSensorCategory(revSensorsCategory);
+
+const subsystemToolbox = ({
+  includeWpilibSensors,
+  includeWpilibOutputs,
+  includeRevSensors,
+}: {
+  includeWpilibSensors: boolean;
+  includeWpilibOutputs: boolean;
+  includeRevSensors: boolean;
+}) => ({
   kind: 'categoryToolbox',
   contents: [
     {
@@ -579,12 +589,12 @@ const subsystemToolbox = () => ({
         {
           kind: 'block',
           type: 'sc_subsystem_on_start',
-          next: {block: motorGroupSetPowerBlock()},
+          next: {block: setMotorPowerBlock()},
         },
         {
           kind: 'block',
           type: 'sc_subsystem_on_command',
-          next: {block: motorGroupSetPowerBlock()},
+          next: {block: setMotorPowerBlock()},
         },
       ],
     },
@@ -594,9 +604,6 @@ const subsystemToolbox = () => ({
       categorystyle: 'motion_category',
       cssConfig: categoryCss('motion'),
       contents: [
-        motorGroupSetPowerBlock(),
-        motorGroupStopBlock(),
-        motorGroupBlock(),
         setMotorPowerBlock(),
         runForSecondsBlock(),
         stopMotorBlock(),
@@ -620,6 +627,13 @@ const subsystemToolbox = () => ({
     },
     {
       kind: 'category',
+      name: 'Sensing',
+      categorystyle: 'sensing_category',
+      cssConfig: categoryCss('sensing'),
+      contents: [sensorValueBlock()],
+    },
+    {
+      kind: 'category',
       name: 'Control',
       categorystyle: 'control_category',
       cssConfig: categoryCss('control'),
@@ -635,7 +649,7 @@ const subsystemToolbox = () => ({
           type: 'sc_repeat_commands',
           inputs: {
             TIMES: {shadow: numberShadow(3)},
-            COMMANDS: {block: motorGroupSetPowerBlock()},
+            COMMANDS: {block: setMotorPowerBlock()},
           },
         },
         {
@@ -650,18 +664,76 @@ const subsystemToolbox = () => ({
           kind: 'block',
           type: 'sc_parallel_commands',
           inputs: {
-            FIRST: {block: motorGroupSetPowerBlock()},
-            SECOND: {block: motorGroupSetPowerBlock()},
+            FIRST: {block: setMotorPowerBlock()},
+            SECOND: {block: setMotorPowerBlock()},
           },
+        },
+        {
+          kind: 'block',
+          type: 'sc_race_commands',
+          inputs: {
+            FIRST: {block: setMotorPowerBlock()},
+            SECOND: {block: setMotorPowerBlock()},
+          },
+        },
+        {
+          kind: 'block',
+          type: 'sc_deadline_commands',
+          inputs: {
+            DEADLINE: {block: setMotorPowerBlock()},
+            OTHER: {block: setMotorPowerBlock()},
+          },
+        },
+        {
+          kind: 'block',
+          type: 'sc_wait_until',
+          inputs: {CONDITION: {block: booleanBlock()}},
         },
       ],
     },
+    ...(includeWpilibSensors ? [mechanismWpilibSensorsCategory] : []),
+    ...(includeWpilibOutputs ? [wpilibOutputsCategory] : []),
+    ...(includeRevSensors ? [mechanismRevSensorsCategory] : []),
     {
       kind: 'category',
       name: 'Operators',
       categorystyle: 'operators_category',
       cssConfig: categoryCss('operators'),
-      contents: [numberShadow(0), absoluteValueBlock(), isWithinBlock()],
+      contents: [
+        numberShadow(0),
+        {
+          kind: 'block',
+          type: 'math_arithmetic',
+          inputs: {
+            A: {shadow: numberShadow(1)},
+            B: {shadow: numberShadow(1)},
+          },
+        },
+        absoluteValueBlock(),
+        {
+          kind: 'block',
+          type: 'math_number_property',
+          inputs: {NUMBER_TO_CHECK: {shadow: numberShadow(0)}},
+        },
+        {kind: 'block', type: 'logic_compare'},
+        isWithinBlock(),
+        {kind: 'block', type: 'logic_operation'},
+        {kind: 'block', type: 'logic_boolean'},
+      ],
+    },
+    {
+      kind: 'category',
+      name: 'Variables',
+      categorystyle: 'variables_category',
+      cssConfig: categoryCss('variables'),
+      custom: 'VARIABLE',
+    },
+    {
+      kind: 'category',
+      name: 'Extensions',
+      categorystyle: 'advanced_category',
+      cssConfig: categoryCss('advanced'),
+      custom: EXTENSIONS_TOOLBOX_CATEGORY,
     },
   ],
 });
@@ -681,7 +753,11 @@ export const buildToolbox = ({
   editor?: 'opmode' | 'subsystem';
   robotMode?: 'simple' | 'advanced';
 }) => ({
-  ...(editor === 'subsystem' ? subsystemToolbox() : {
+  ...(editor === 'subsystem' ? subsystemToolbox({
+    includeWpilibSensors,
+    includeWpilibOutputs,
+    includeRevSensors,
+  }) : {
   kind: 'categoryToolbox',
   contents: [
     {
@@ -725,9 +801,6 @@ export const buildToolbox = ({
       cssConfig: categoryCss('motion'),
       contents: [
         setMotorPowerBlock(),
-        motorGroupSetPowerBlock(),
-        motorGroupStopBlock(),
-        motorGroupBlock(),
         runForSecondsBlock(),
         stopMotorBlock(),
         setMotorVelocityBlock(),
@@ -815,6 +888,18 @@ export const buildToolbox = ({
               block: defaultOpmodeCommandBlock(robotMode),
             },
             SECOND: {
+              block: defaultOpmodeCommandBlock(robotMode),
+            },
+          },
+        },
+        {
+          kind: 'block',
+          type: 'sc_deadline_commands',
+          inputs: {
+            DEADLINE: {
+              block: defaultOpmodeCommandBlock(robotMode),
+            },
+            OTHER: {
               block: defaultOpmodeCommandBlock(robotMode),
             },
           },

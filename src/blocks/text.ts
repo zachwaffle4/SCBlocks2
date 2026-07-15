@@ -12,7 +12,7 @@ import {
   type FieldColourValidator,
 } from "@blockly/field-colour";
 import { a301MethodOptions, A301_VALUE_METHODS } from "../generated/a301";
-import { deviceField, motorGroupField, movementMotorsField } from "../devices";
+import { deviceField, movementMotorsField } from "../devices";
 import { mechanismCommandField, mechanismField } from "../mechanisms";
 
 const normalizeColour = (value: unknown) => {
@@ -648,56 +648,6 @@ const scSubsystemOnCommand = {
   helpUrl: "",
 };
 
-const scMotorGroup = {
-  type: "sc_motor_group",
-  message0: "motor group %1",
-  args0: [motorGroupField()],
-  output: "MotorGroup",
-  colour: motionColour,
-  tooltip:
-    "Choose the motors that should receive the same command. Click the group to edit it.",
-  helpUrl: "",
-};
-
-const scMotorGroupSetPower = {
-  type: "sc_motor_group_set_power",
-  message0: "set motor group %1 power to %2 %",
-  args0: [
-    {
-      type: "input_value",
-      name: "GROUP",
-      check: "MotorGroup",
-    },
-    {
-      type: "input_value",
-      name: "POWER",
-      check: "Number",
-    },
-  ],
-  previousStatement: "Command",
-  nextStatement: "Command",
-  colour: motionColour,
-  tooltip: "Sets the same throttle for every motor in an explicit group.",
-  helpUrl: "",
-};
-
-const scMotorGroupStop = {
-  type: "sc_motor_group_stop",
-  message0: "stop motor group %1",
-  args0: [
-    {
-      type: "input_value",
-      name: "GROUP",
-      check: "MotorGroup",
-    },
-  ],
-  previousStatement: "Command",
-  nextStatement: "Command",
-  colour: motionColour,
-  tooltip: "Stops every motor in an explicit group.",
-  helpUrl: "",
-};
-
 const scMechanismRunCommand = {
   type: "sc_mechanism_run_command",
   message0: "tell %1 to %2",
@@ -882,22 +832,20 @@ const scWhileCommands = {
 const scParallelCommands = {
   type: "sc_parallel_commands",
   message0: "do both at the same time",
-  message1: "first %1",
+  message1: "%1 %2",
   args1: [
     {
       type: "input_statement",
       name: "FIRST",
       check: "Command",
     },
-  ],
-  message2: "second %1",
-  args2: [
     {
       type: "input_statement",
       name: "SECOND",
       check: "Command",
     },
   ],
+  inputsInline: true,
   previousStatement: "Command",
   nextStatement: "Command",
   colour: controlColour,
@@ -908,26 +856,49 @@ const scParallelCommands = {
 const scRaceCommands = {
   type: "sc_race_commands",
   message0: "race commands until one finishes",
-  message1: "first %1",
+  message1: "%1 %2",
   args1: [
     {
       type: "input_statement",
       name: "FIRST",
       check: "Command",
     },
-  ],
-  message2: "second %1",
-  args2: [
     {
       type: "input_statement",
       name: "SECOND",
       check: "Command",
     },
   ],
+  inputsInline: true,
   previousStatement: "Command",
   nextStatement: "Command",
   colour: controlColour,
   tooltip: "Runs two command stacks and ends when either one finishes.",
+  helpUrl: "",
+};
+
+const scDeadlineCommands = {
+  type: "sc_deadline_commands",
+  message0: "run left deadline with right commands until it finishes",
+  message1: "%1 %2",
+  args1: [
+    {
+      type: "input_statement",
+      name: "DEADLINE",
+      check: "Command",
+    },
+    {
+      type: "input_statement",
+      name: "OTHER",
+      check: "Command",
+    },
+  ],
+  inputsInline: true,
+  previousStatement: "Command",
+  nextStatement: "Command",
+  colour: controlColour,
+  tooltip:
+    "Runs both command stacks together and ends when the deadline stack finishes.",
   helpUrl: "",
 };
 
@@ -1687,9 +1658,6 @@ export const blocks = Blockly.common.createBlockDefinitionsFromJsonArray([
   scMechanismStop,
   scSubsystemOnStart,
   scSubsystemOnCommand,
-  scMotorGroup,
-  scMotorGroupSetPower,
-  scMotorGroupStop,
   scMechanismRunCommand,
   scMovementMotors,
   scDrivetrainArcadeDrive,
@@ -1702,6 +1670,7 @@ export const blocks = Blockly.common.createBlockDefinitionsFromJsonArray([
   scWhileCommands,
   scParallelCommands,
   scRaceCommands,
+  scDeadlineCommands,
   scWaitUntil,
   scIf,
   scA301SensorValue,
