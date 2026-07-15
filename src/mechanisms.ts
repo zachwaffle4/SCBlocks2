@@ -3,7 +3,7 @@ import {getDevice, serializeMotorGroupConfig} from './devices';
 import type {WorkspaceState} from './opmodes';
 
 /**
- * A project-level commands2 subsystem made from one or more A301 motors.
+ * A project-level commands3 subsystem made from one or more A301 motors.
  *
  * The stable ids are intentional: a block continues to point at the same
  * mechanism when its display name changes, and a removed mechanism remains

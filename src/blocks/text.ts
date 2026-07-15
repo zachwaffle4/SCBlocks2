@@ -589,7 +589,7 @@ const scMotorSetPosition = {
   helpUrl: "",
 };
 
-// Mechanisms are project-level commands2 subsystems. They are configured in
+// Mechanisms are project-level commands3 subsystems. They are configured in
 // Robot Setup instead of being re-created in every OpMode, then these blocks
 // create commands that require the selected subsystem.
 const scMechanismSetPower = {
@@ -607,7 +607,7 @@ const scMechanismSetPower = {
   nextStatement: "Command",
   colour: movementColour,
   tooltip:
-    "Sets every motor in this commands2 subsystem. The command reserves the mechanism while it runs.",
+    "Sets every motor in this commands3 subsystem. The command reserves the mechanism while it runs.",
   helpUrl: "",
 };
 
@@ -618,7 +618,7 @@ const scMechanismStop = {
   previousStatement: "Command",
   nextStatement: "Command",
   colour: movementColour,
-  tooltip: "Stops every motor in this commands2 subsystem.",
+  tooltip: "Stops every motor in this commands3 subsystem.",
   helpUrl: "",
 };
 
@@ -931,7 +931,7 @@ const scWaitUntil = {
 
 // The standard Blockly if mutator gives this block optional else-if and else
 // branches. Its statement connections deliberately accept either context: in a
-// command stack it becomes a Commands2 ConditionalCommand, while inside an
+// command stack it becomes a Commands3 ConditionalCommand, while inside an
 // OpMode setup hat it is ordinary Python control flow.
 const scIf = {
   type: "sc_if",
@@ -956,7 +956,7 @@ const scIf = {
   style: "control_blocks",
   mutator: "controls_if_mutator",
   tooltip:
-    "In a command stack, chooses a Commands2 command group. In OpMode setup, generates a normal Python if statement.",
+    "In a command stack, chooses a Commands3 command group. In OpMode setup, generates a normal Python if statement.",
   helpUrl: "",
 };
 

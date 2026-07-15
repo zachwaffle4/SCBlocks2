@@ -12,11 +12,11 @@ import {generateMechanismDefinitions, generateOpmodeClass} from './generators/py
 import {getMechanisms} from './mechanisms';
 import {getRobotMode} from './robotMode';
 
+
 export const OPMODE_DETAILS_BLOCK_TYPE = 'sc_opmode_details';
 
 const BASE_IMPORT_LINES = [
-  'from commands2 import *',
-  'from commands2.button import Trigger',
+  'from commands3 import *',
   'import wpilib',
 ];
 

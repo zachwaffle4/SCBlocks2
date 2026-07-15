@@ -25,7 +25,7 @@ import {
 } from './generated/a301';
 import {
   extensionInstanceReference,
-  instantCommandExpr,
+
   registerPythonImport,
 } from './generators/python';
 import {
@@ -233,11 +233,7 @@ extensionForBlock['sc_ext_call'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  // Keep advanced API calls consistent with beginner-facing motor blocks:
-  // emit a named `block_N` method and reference the imported InstantCommand
-  // directly. The older `commands2.InstantCommand(...)` form produced Python
-  // that never imported the `commands2` module.
-  return `${instantCommandExpr(callExpression(block, generator))},\n`;
+  return `${callExpression(block, generator)}\n`;
 };
 
 extensionForBlock['sc_ext_value'] = function (
@@ -274,7 +270,7 @@ extensionForBlock['sc_ext_instance_call'] = function (
   generator: PythonGenerator,
 ) {
   const call = instanceCallExpression(block, generator);
-  return `${instantCommandExpr(call || 'pass')},\n`;
+  return `${call || 'pass'}\n`;
 };
 
 extensionForBlock['sc_ext_instance_value'] = function (

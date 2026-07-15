@@ -176,15 +176,26 @@ const percentToThrottle = (power: string) =>
 // lambda — matching the hand-written opmode style. The registry is reset at the
 // start of every generateOpmodeClass() call.
 let blockMethodBodies: string[] = [];
+const blockMethodNameCounts = new Map<string, number>();
 let generatingSubsystemCommand = false;
 
 const resetBlockMethods = () => {
   blockMethodBodies = [];
+  blockMethodNameCounts.clear();
 };
 
-const registerBlockMethod = (statement: string): string => {
-  const name = `block_${blockMethodBodies.length + 1}`;
-  blockMethodBodies.push(`    def ${name}(self):\n${indentCode(statement, 8)}`);
+const registerBlockMethod = (statement: string, baseName = 'block'): string => {
+  let cleanBaseName = baseName.replace(/^self\./, '').replace(/[^a-zA-Z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '').toLowerCase() || 'block';
+  if (!cleanBaseName.startsWith('block_')) {
+    cleanBaseName = `block_${cleanBaseName}`;
+  }
+  
+  const count = (blockMethodNameCounts.get(cleanBaseName) || 0) + 1;
+  blockMethodNameCounts.set(cleanBaseName, count);
+  
+  const name = count > 1 ? `${cleanBaseName}_${count}` : cleanBaseName;
+  
+  blockMethodBodies.push(`    async def ${name}(self):\n${indentCode(statement.trim() ? statement : 'pass\n', 8)}`);
   return `self.${name}`;
 };
 
@@ -197,9 +208,9 @@ export const instantCommandExpr = (
   // Keep their actions inline so they call the subsystem's owned motors and
   // reserve that subsystem instead of emitting OpMode-only block_N methods.
   if (generatingSubsystemCommand) {
-    return `InstantCommand(lambda: ${pythonCall}, ${requirement || 'self'})`;
+    return `_run_instant(lambda: ${pythonCall}, ${requirement || 'self'})`;
   }
-  return `InstantCommand(${registerBlockMethod(pythonCall)}${requirement ? `, ${requirement}` : ''})`;
+  return `Command.no_requirements().executing(${registerBlockMethod(pythonCall + '\n')})`;
 };
 
 const instantCommand = (pythonCall: string) =>
@@ -217,23 +228,23 @@ const commandLinesForStatement = (
   inputName: string,
 ) => compactStatementLines(generator.statementToCode(block, inputName));
 
-// Event/trigger hats no longer enclose their commands; the command stack hangs
-// off the hat's next connection instead. Follow that chain to collect the lines.
 const commandLinesForNext = (
   block: Blockly.Block,
   generator: PythonGenerator,
+  baseName = 'block'
 ) => {
   const next = block.getNextBlock();
   if (!next) return [];
   const code = generator.blockToCode(next);
   const codeStr = Array.isArray(code) ? code[0] : code;
-  return compactStatementLines(typeof codeStr === 'string' ? codeStr : '');
+  const method = registerBlockMethod((codeStr || '').trim() ? codeStr : 'pass\n', baseName);
+  return [method];
 };
 
-const commandGroupExpression = (commands: string[]) =>
+const commandGroupExpression = (commands: string[], name?: string) =>
   commands.length
-    ? `SequentialCommandGroup(${commands.map(stripCommandComma).join(', ')})`
-    : 'SequentialCommandGroup()';
+    ? `Command.no_requirements().executing(${commands[0]}).named(${name ? `"${name.replace(/"/g, '\\"')}"` : `"${commands[0]}"`})`
+    : `Command.no_requirements().executing(lambda: None).named("empty")`;
 
 const isSetupControlFlow = (block: Blockly.Block) =>
   block.getRootBlock().type === 'sc_on_setup';
@@ -276,33 +287,27 @@ const conditionalCommandExpression = (
     const whenTrue = commandGroupExpression(
       commandLinesForStatement(block, generator, `DO${index}`),
     );
-    otherwise = `ConditionalCommand(${whenTrue}, ${otherwise}, lambda: ${condition})`;
+    otherwise = `_run_conditional(${whenTrue}, ${otherwise}, lambda: ${condition})`;
   }
 
   return otherwise;
 };
 
-// The opmode's main command, formatted across multiple lines like the
-// hand-written style (one command per line).
 const mainCommandExpression = (commands: string[]) => {
-  const commandExpressions = commands.map(stripCommandComma);
-  if (!commandExpressions.length) {
-    return 'SequentialCommandGroup()';
+  if (!commands.length) {
+    return `Command.no_requirements().executing(lambda: None).named("main")`;
   }
-  const inner = commandExpressions
-    .map((expression) => `            ${expression}`)
-    .join(',\n');
-  return `SequentialCommandGroup(\n${inner}\n        )`;
+  return `Command.no_requirements().executing(${commands[0]}).named("main")`;
 };
 
 const startCommandExpression = (commandStacks: string[][]) => {
-  if (!commandStacks.length) return 'SequentialCommandGroup()';
+  if (!commandStacks.length) return `Command.no_requirements().executing(lambda: None).named("start")`;
   if (commandStacks.length === 1) return mainCommandExpression(commandStacks[0]);
 
   const inner = commandStacks
     .map((commands) => `            ${commandGroupExpression(commands)}`)
     .join(',\n');
-  return `ParallelCommandGroup(\n${inner}\n        )`;
+  return `Command.parallel(\n${inner}\n        ).with_automatic_name()`;
 };
 
 const pascalCaseIdentifier = (value: string | null, fallback: string) => {
@@ -376,12 +381,12 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
       drivetrain = movementDrivetrainConfig(workspace);
     }
     for (const hat of workspace.getBlocksByType('sc_subsystem_on_start', false)) {
-      startCommands.push(...commandLinesForNext(hat, pythonGenerator));
+      startCommands.push(...commandLinesForNext(hat, pythonGenerator, 'on_start'));
     }
     for (const hat of workspace.getBlocksByType('sc_subsystem_on_command', false)) {
       const command = (hat.getFieldValue('COMMAND') || '').trim();
       if (command && !commandStacks.has(command)) {
-        commandStacks.set(command, commandLinesForNext(hat, pythonGenerator));
+        commandStacks.set(command, commandLinesForNext(hat, pythonGenerator, command));
       }
     }
   } catch (error) {
@@ -395,7 +400,7 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
 };
 
 /**
- * Project-level commands2 subsystem classes. Advanced mode gives every
+ * Project-level commands3 subsystem classes. Advanced mode gives every
  * subsystem its own Scratch-style event workspace; its command hats become
  * reusable Command factories on this class.
  */
@@ -404,15 +409,16 @@ export const generateMechanismDefinitions = () => {
   const definitions: string[] = [];
   const names = mechanismPythonNames();
   for (const mechanism of getMechanisms()) {
+    resetBlockMethods();
     const events = subsystemEventStacks(mechanism);
     const motors = mechanismDevices(mechanism);
     const motorReferences = motors.map(
       (motor) => `self.${safePythonIdentifier(motor.name, 'motor')}`,
     );
     definitions.push(
-      `class ${mechanismClassName(names.get(mechanism.id) || mechanism.name)}(SubsystemBase):`,
+      `class ${mechanismClassName(names.get(mechanism.id) || mechanism.name)}(Mechanism):`,
       '    def __init__(self):',
-      '        super().__init__()',
+      `        super().__init__("${mechanismClassName(names.get(mechanism.id) || mechanism.name)}")`,
       ...motors.map(
         (motor) =>
           `        self.${safePythonIdentifier(motor.name, 'motor')} = A301(${motor.deviceId}, ${motor.bus})`,
@@ -441,6 +447,15 @@ export const generateMechanismDefinitions = () => {
         `    def ${subsystemCommandMethodName(command)}(self):`,
         `        return ${commandGroupExpression(commands)}`,
       );
+    }
+    const blockMethodLines: string[] = [];
+    blockMethodBodies.forEach((body, index) => {
+      if (index > 0) blockMethodLines.push('');
+      blockMethodLines.push(body);
+    });
+    if (blockMethodLines.length) {
+      definitions.push('');
+      definitions.push(...blockMethodLines);
     }
     definitions.push('');
   }
@@ -824,12 +839,12 @@ const buildTriggerLines = (
   triggers.forEach((trigger, index) => {
     const condition = triggerConditionExpression(trigger, generator);
     const mode =
-      trigger.getFieldValue('MODE') === 'whileTrue' ? 'whileTrue' : 'onTrue';
-    const commands = commandLinesForNext(trigger, generator);
+      trigger.getFieldValue('MODE') === 'whileTrue' ? 'while_true' : 'on_true';
+    const commands = commandLinesForNext(trigger, generator, condition);
     const name = `trigger_${index + 1}`;
     lines.push(
       `        ${name} = Trigger(lambda: ${condition})`,
-      `        ${name}.${mode}(${commandGroupExpression(commands)})`,
+      `        ${name}.${mode}(${commandGroupExpression(commands, condition)})`,
     );
     if (index < triggers.length - 1) lines.push('');
   });
@@ -909,7 +924,7 @@ export const generateOpmodeClass = (
 
   const startCommandStacks: string[][] = [];
   for (const hat of workspace.getBlocksByType('sc_on_start', false)) {
-    startCommandStacks.push(commandLinesForNext(hat, generator));
+    startCommandStacks.push(commandLinesForNext(hat, generator, 'on_start'));
   }
 
   const decorators: string[] = [];
@@ -985,7 +1000,7 @@ export const generateOpmodeClass = (
     ...startBody,
     '',
     '    def periodic(self):',
-    '        CommandScheduler.getInstance().run()',
+    '        Scheduler.get_default().run()',
     '',
     '    def end(self):',
     '        if self.main_command:',
@@ -1001,24 +1016,21 @@ forBlock['sc_motor_set_power'] = function (
   generator: PythonGenerator,
 ) {
   const power = valueToCode(block, generator, 'POWER', '0');
-  return instantCommand(`${deviceReference(block, generator)}.setThrottle(${percentToThrottle(power)})`);
+  return `${deviceReference(block, generator)}.setThrottle(${percentToThrottle(power)})\n`;
 };
 
-forBlock['sc_motor_run_for_seconds'] = function (
-  block: Blockly.Block,
-  generator: PythonGenerator,
-) {
+forBlock['sc_motor_run_for_seconds'] = function (block: Blockly.Block, generator: PythonGenerator) {
   const motor = deviceReference(block, generator);
   const power = valueToCode(block, generator, 'POWER', '50');
   const seconds = valueToCode(block, generator, 'SECONDS', '1');
-  return `SequentialCommandGroup(${instantCommandExpr(`${motor}.setThrottle(${percentToThrottle(power)})`)}, WaitCommand(${seconds}), ${instantCommandExpr(`${motor}.setThrottle(0)`)}),\n`;
+  return `${motor}.setThrottle(${percentToThrottle(power)})\nawait wait(${seconds})\n${motor}.setThrottle(0)\n`;
 };
 
 forBlock['sc_motor_stop'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  return instantCommand(`${deviceReference(block, generator)}.setThrottle(0)`);
+  return `${deviceReference(block, generator)}.setThrottle(0)\n`;
 };
 
 forBlock['sc_motor_set_velocity'] = function (
@@ -1026,7 +1038,7 @@ forBlock['sc_motor_set_velocity'] = function (
   generator: PythonGenerator,
 ) {
   const velocity = valueToCode(block, generator, 'VELOCITY', '0');
-  return instantCommand(`${deviceReference(block, generator)}.setVelocity(${velocity})`);
+  return `${deviceReference(block, generator)}.setVelocity(${velocity})\n`;
 };
 
 forBlock['sc_motor_set_position'] = function (
@@ -1034,7 +1046,7 @@ forBlock['sc_motor_set_position'] = function (
   generator: PythonGenerator,
 ) {
   const position = valueToCode(block, generator, 'POSITION', '0');
-  return instantCommand(`${deviceReference(block, generator)}.setPosition(${position})`);
+  return `${deviceReference(block, generator)}.setPosition(${position})\n`;
 };
 
 forBlock['sc_motor_group'] = function (block: Blockly.Block) {
@@ -1047,14 +1059,7 @@ const motorGroupPowerCommand = (
   power: string,
 ) => {
   const group = valueToCode(block, generator, 'GROUP', '()');
-  if (generatingSubsystemCommand) {
-    return `InstantCommand(lambda: self.set_motor_group_power(${group}, ${power}), self),\n`;
-  }
-  const action = [
-    `for motor in ${group}:`,
-    `    motor.setThrottle(${power})`,
-  ].join('\n');
-  return `InstantCommand(${registerBlockMethod(action)}),\n`;
+  return `for _motor in ${group}:\n    _motor.setThrottle(${power})\n`;
 };
 
 forBlock['sc_motor_group_set_power'] = function (
@@ -1077,28 +1082,25 @@ forBlock['sc_mechanism_set_power'] = function (
   generator: PythonGenerator,
 ) {
   const mechanism = getMechanism(block.getFieldValue('MECHANISM'));
-  if (!mechanism) return instantCommand('pass');
+  if (!mechanism) return '';
   const name = mechanismPythonNames().get(mechanism.id) || 'mechanism';
   const power = valueToCode(block, generator, 'POWER', '0');
-  return `${instantCommandExpr(
-    `self.${name}.set_power(${percentToThrottle(power)})`,
-    `self.${name}`,
-  )},\n`;
+  return `self.${name}.set_power(${percentToThrottle(power)})\n`;
 };
 
 forBlock['sc_mechanism_stop'] = function (block: Blockly.Block) {
   const mechanism = getMechanism(block.getFieldValue('MECHANISM'));
-  if (!mechanism) return instantCommand('pass');
+  if (!mechanism) return '';
   const name = mechanismPythonNames().get(mechanism.id) || 'mechanism';
-  return `${instantCommandExpr(`self.${name}.stop()`, `self.${name}`)},\n`;
+  return `self.${name}.stop()\n`;
 };
 
 forBlock['sc_mechanism_run_command'] = function (block: Blockly.Block) {
   const mechanism = getMechanism(block.getFieldValue('MECHANISM'));
   const command = (block.getFieldValue('COMMAND') || '').trim();
-  if (!mechanism || !command) return instantCommand('pass');
+  if (!mechanism || !command) return '';
   const name = mechanismPythonNames().get(mechanism.id) || 'mechanism';
-  return `self.${name}.${subsystemCommandMethodName(command)}(),\n`;
+  return `self.${name}.${subsystemCommandMethodName(command)}()\n`;
 };
 
 forBlock['sc_drivetrain_arcade_drive'] = function (
@@ -1107,9 +1109,7 @@ forBlock['sc_drivetrain_arcade_drive'] = function (
 ) {
   const forward = valueToCode(block, generator, 'FORWARD', '0');
   const turn = valueToCode(block, generator, 'TURN', '0');
-  return instantCommand(
-    `${movementDriveReference()}.arcadeDrive(${percentToThrottle(forward)}, ${percentToThrottle(turn)})`,
-  );
+  return `${movementDriveReference()}.arcadeDrive(${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
 };
 
 forBlock['sc_drivetrain_tank_drive'] = function (
@@ -1118,13 +1118,11 @@ forBlock['sc_drivetrain_tank_drive'] = function (
 ) {
   const leftPower = valueToCode(block, generator, 'LEFT_POWER', '0');
   const rightPower = valueToCode(block, generator, 'RIGHT_POWER', '0');
-  return instantCommand(
-    `${movementDriveReference()}.tankDrive(${percentToThrottle(leftPower)}, ${percentToThrottle(rightPower)})`,
-  );
+  return `${movementDriveReference()}.tankDrive(${percentToThrottle(leftPower)}, ${percentToThrottle(rightPower)})\n`;
 };
 
 forBlock['sc_drivetrain_stop'] = function (block: Blockly.Block) {
-  return instantCommand(`${movementDriveReference()}.stopMotor()`);
+  return `${movementDriveReference()}.stop()\n`;
 };
 
 forBlock['sc_mecanum_drive'] = function (
@@ -1134,13 +1132,11 @@ forBlock['sc_mecanum_drive'] = function (
   const sideways = valueToCode(block, generator, 'SIDEWAYS', '0');
   const forward = valueToCode(block, generator, 'FORWARD', '0');
   const turn = valueToCode(block, generator, 'TURN', '0');
-  return instantCommand(
-    `${movementDriveReference()}.driveCartesian(${percentToThrottle(sideways)}, ${percentToThrottle(forward)}, ${percentToThrottle(turn)})`,
-  );
+  return `${movementDriveReference()}.driveCartesian(${percentToThrottle(sideways)}, ${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
 };
 
 forBlock['sc_mecanum_stop'] = function (block: Blockly.Block) {
-  return instantCommand(`${movementDriveReference()}.stopMotor()`);
+  return `${movementDriveReference()}.stop()\n`;
 };
 
 forBlock['sc_wait_seconds'] = function (
@@ -1148,7 +1144,7 @@ forBlock['sc_wait_seconds'] = function (
   generator: PythonGenerator,
 ) {
   const seconds = valueToCode(block, generator, 'SECONDS', '1');
-  return `WaitCommand(${seconds}),\n`;
+  return `await wait(${seconds})\n`;
 };
 
 forBlock['sc_repeat_commands'] = function (
@@ -1156,32 +1152,28 @@ forBlock['sc_repeat_commands'] = function (
   generator: PythonGenerator,
 ) {
   const times = valueToCode(block, generator, 'TIMES', '2');
-  const innerCommands = compactStatementLines(
-    generator.statementToCode(block, 'COMMANDS'),
-  ).map(stripCommandComma);
-  const sequence = innerCommands.length
-    ? innerCommands.join(', ')
-    : instantCommandExpr('pass');
-
-  return `SequentialCommandGroup(*[SequentialCommandGroup(${sequence}) for _ in range(int(${times}))]),\n`;
+  const innerCommands = generator.statementToCode(block, 'COMMANDS') || `${generator.INDENT}pass\n`;
+  return `for _ in range(int(${times})):\n${innerCommands}`;
 };
 
 forBlock['sc_parallel_commands'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const firstCommands = commandLinesForStatement(block, generator, 'FIRST');
-  const secondCommands = commandLinesForStatement(block, generator, 'SECOND');
-  return `ParallelCommandGroup(${commandGroupExpression(firstCommands)}, ${commandGroupExpression(secondCommands)}),\n`;
+  const firstCommands = generator.statementToCode(block, 'DO0') || `${generator.INDENT}pass\n`;
+  const secondCommands = generator.statementToCode(block, 'DO1') || `${generator.INDENT}pass\n`;
+  const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
+  return `async def _parallel_${id}_0():\n${firstCommands}async def _parallel_${id}_1():\n${secondCommands}await await_all([Command.no_requirements().executing(_parallel_${id}_0), Command.no_requirements().executing(_parallel_${id}_1)])\n`;
 };
 
 forBlock['sc_race_commands'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const firstCommands = commandLinesForStatement(block, generator, 'FIRST');
-  const secondCommands = commandLinesForStatement(block, generator, 'SECOND');
-  return `ParallelRaceGroup(${commandGroupExpression(firstCommands)}, ${commandGroupExpression(secondCommands)}),\n`;
+  const firstCommands = generator.statementToCode(block, 'DO0') || `${generator.INDENT}pass\n`;
+  const secondCommands = generator.statementToCode(block, 'DO1') || `${generator.INDENT}pass\n`;
+  const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
+  return `async def _race_${id}_0():\n${firstCommands}async def _race_${id}_1():\n${secondCommands}await await_any([Command.no_requirements().executing(_race_${id}_0), Command.no_requirements().executing(_race_${id}_1)])\n`;
 };
 
 forBlock['sc_wait_until'] = function (
@@ -1189,17 +1181,14 @@ forBlock['sc_wait_until'] = function (
   generator: PythonGenerator,
 ) {
   const condition = valueToCode(block, generator, 'CONDITION', 'False');
-  return `WaitUntilCommand(lambda: ${condition}),\n`;
+  return `await wait_until(lambda: ${condition})\n`;
 };
 
 forBlock['sc_if'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  if (isSetupControlFlow(block)) {
-    return pythonIfStatement(block, generator);
-  }
-  return `${conditionalCommandExpression(block, generator)},\n`;
+  return pythonIfStatement(block, generator);
 };
 
 forBlock['sc_a301_sensor_value'] = function (
@@ -1253,7 +1242,7 @@ forBlock['sc_wpilib_encoder_value'] = function (block: Blockly.Block) {
 };
 
 forBlock['sc_wpilib_encoder_reset'] = function (block: Blockly.Block) {
-  return instantCommand(`${encoderReference(block)}.reset()`);
+  return `${encoderReference(block)}.reset()\n`;
 };
 
 forBlock['sc_wpilib_duty_cycle_encoder_value'] = function (
@@ -1311,7 +1300,7 @@ forBlock['sc_wpilib_imu_value'] = function (
 };
 
 forBlock['sc_wpilib_imu_reset'] = function () {
-  return instantCommand(`${IMU_REFERENCE}.resetYaw()`);
+  return `${IMU_REFERENCE}.reset()\n`;
 };
 
 forBlock['sc_wpilib_match_time'] = function () {
@@ -1320,7 +1309,7 @@ forBlock['sc_wpilib_match_time'] = function () {
 
 forBlock['sc_wpilib_digital_output_set'] = function (block: Blockly.Block) {
   const value = block.getFieldValue('STATE') === 'OFF' ? 'False' : 'True';
-  return instantCommand(`${digitalOutputReference(block)}.set(${value})`);
+  return `${digitalOutputReference(block)}.set(${value})\n`;
 };
 
 forBlock['sc_wpilib_smartdashboard_put'] = function (
@@ -1329,7 +1318,7 @@ forBlock['sc_wpilib_smartdashboard_put'] = function (
 ) {
   const key = pythonStringLiteral(block.getFieldValue('KEY'));
   const value = valueToCode(block, generator, 'VALUE', '0');
-  return instantCommand(`wpilib.SmartDashboard.putNumber(${key}, ${value})`);
+  return `wpilib.SmartDashboard.putNumber(${key}, ${value})\n`;
 };
 
 forBlock['sc_wpilib_smartdashboard_get'] = function (block: Blockly.Block) {
@@ -1389,7 +1378,7 @@ forBlock['sc_a301_advanced_call'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  return instantCommand(methodCall(block, generator));
+  return `${methodCall(block, generator)}\n`;
 };
 
 forBlock['sc_a301_advanced_value'] = function (

@@ -12,3 +12,6 @@ python_tools/venv
 python_tools/generated/runtime_python.json
 __pycache__
 *.pyc
+
+# IDE files
+.idea/

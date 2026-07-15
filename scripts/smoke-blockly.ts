@@ -160,10 +160,10 @@ connectNext(commandStart, commandIf);
 
 pythonGenerator.init(ifWorkspace);
 const commandIfCode = generateOpmodeClass(ifWorkspace, pythonGenerator);
-assertIncludes(commandIfCode, 'ConditionalCommand(');
-assertIncludes(commandIfCode, 'lambda: True');
+assertIncludes(commandIfCode, 'if True:');
 assertIncludes(commandIfCode, 'max(-1, min(1, (25) / 100.0))');
 assertIncludes(commandIfCode, 'max(-1, min(1, (-25) / 100.0))');
+assertIncludes(commandIfCode, 'else:');
 
 const setupHat = ifWorkspace.newBlock('sc_on_setup');
 const setupIf = ifWorkspace.newBlock('sc_if') as Blockly.Block & {
@@ -359,12 +359,12 @@ assertIncludes(opmodeCode, 'self.digital_input_4 = wpilib.DigitalInput(4)');
 assertIncludes(opmodeCode, 'Trigger(lambda: self.digital_input_4.get())');
 assertIncludes(opmodeCode, 'self.encoder_0_1.getRate() >= (5)');
 assertIncludes(opmodeCode, 'self.main_command: Command | None = None');
-assertIncludes(opmodeCode, 'CommandScheduler.getInstance().run()');
+assertIncludes(opmodeCode, 'Scheduler.get_default().run()');
 assertIncludes(opmodeCode, 'self.gyro.reset()');
-assertIncludes(opmodeCode, 'InstantCommand(self.block_');
-assertIncludes(opmodeCode, 'self.main_command = ParallelCommandGroup(');
+assertIncludes(opmodeCode, 'Command.no_requirements().executing(self.block_');
+assertIncludes(opmodeCode, 'self.main_command = Command.parallel(');
 assertIncludes(opmodeCode, 'Trigger(lambda:');
-assertIncludes(opmodeCode, 'trigger_1.whileTrue(');
+assertIncludes(opmodeCode, 'trigger_1.while_true(');
 
 // A disabled opmode still generates the class but no registration decorator.
 details.setFieldValue('FALSE', 'ENABLED');
@@ -539,8 +539,8 @@ addDevice({name: 'arm_motor', bus: 7, deviceId: 1});
 const registrationCheck = generateAllOpmodes([
   {id: 'reg', state: makeOpmodeState('Teleop', 'Drive')},
 ]);
-assertIncludes(registrationCheck, 'from commands2 import *');
-assertIncludes(registrationCheck, 'from commands2.button import Trigger');
+assertIncludes(registrationCheck, 'from commands3 import *');
+
 assertIncludes(registrationCheck, 'from rev import A301');
 assertIncludes(registrationCheck, 'from robot import teleop');
 assert(
@@ -778,7 +778,7 @@ assertIncludes(
 );
 assertIncludes(extrasCode, 'self.digital_output_2 = wpilib.DigitalOutput(2)');
 assertIncludes(extrasCode, 'Trigger(lambda: math.degrees(self.imu.getYaw()) >= (90))');
-assertIncludes(extrasCode, 'self.imu.resetYaw()');
+assertIncludes(extrasCode, 'self.imu.reset()');
 assertIncludes(extrasCode, 'wpilib.SmartDashboard.putNumber("heading", math.degrees(self.imu.getYaw()))');
 assertIncludes(extrasCode, 'self.digital_output_2.set(True)');
 
@@ -907,7 +907,7 @@ assertIncludes(mechanismCode, 'self.intake.command_intake_piece()');
 const mechanismFile = generateAllOpmodes([
   {id: 'mechanism-test', state: Blockly.serialization.workspaces.save(mechanismWorkspace)},
 ]);
-assertIncludes(mechanismFile, 'class IntakeSubsystem(SubsystemBase):');
+assertIncludes(mechanismFile, 'class IntakeSubsystem(Mechanism):');
 assertIncludes(mechanismFile, 'self.drive_motor = A301(0, 3)');
 assertIncludes(mechanismFile, 'self.right_motor = A301(2, 4)');
 assertIncludes(mechanismFile, 'self._motors = [self.drive_motor, self.right_motor]');
@@ -915,10 +915,12 @@ assertIncludes(mechanismFile, 'self.movement_drive = wpilib.DifferentialDrive(')
 assertIncludes(mechanismFile, 'def on_start(self):');
 assertIncludes(mechanismFile, 'def command_intake_piece(self):');
 assertIncludes(mechanismFile, 'def set_motor_group_power(self, motors, power):');
-assertIncludes(mechanismFile, 'InstantCommand(lambda: self.set_motor_group_power((self.drive_motor, self.right_motor), max(-1, min(1, (65) / 100.0))), self)');
-assertIncludes(mechanismFile, 'InstantCommand(lambda: self.set_motor_group_power((self.drive_motor, self.right_motor), 0), self)');
-assertIncludes(mechanismFile, 'InstantCommand(lambda: self.drive_motor.setThrottle(max(-1, min(1, (40) / 100.0))), self)');
-assertIncludes(mechanismFile, 'InstantCommand(lambda: self.movement_drive.arcadeDrive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (5) / 100.0))), self)');
+assertIncludes(mechanismFile, 'for _motor in (self.drive_motor, self.right_motor):');
+assertIncludes(mechanismFile, '_motor.setThrottle(max(-1, min(1, (65) / 100.0)))');
+assertIncludes(mechanismFile, 'for _motor in (self.drive_motor, self.right_motor):');
+assertIncludes(mechanismFile, '_motor.setThrottle(0)');
+assertIncludes(mechanismFile, 'self.drive_motor.setThrottle(max(-1, min(1, (40) / 100.0)))');
+assertIncludes(mechanismFile, 'self.movement_drive.arcadeDrive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (5) / 100.0)))');
 const advancedToolbox = JSON.stringify(
   buildToolbox({includeGamepad: false, robotMode: 'advanced'}),
 );
@@ -966,9 +968,9 @@ connectValue(motorGroupPower, 'POWER', numberBlock(70, motorGroupWorkspace));
 connectNext(motorGroupStart, motorGroupPower);
 pythonGenerator.init(motorGroupWorkspace);
 const motorGroupCode = generateOpmodeClass(motorGroupWorkspace, pythonGenerator);
-assertIncludes(motorGroupCode, 'def block_1(self):');
-assertIncludes(motorGroupCode, 'for motor in (self.drive_motor, self.right_motor):');
-assertIncludes(motorGroupCode, 'motor.setThrottle(max(-1, min(1, (70) / 100.0))');
+assertIncludes(motorGroupCode, 'def block_on_start(self):');
+assertIncludes(motorGroupCode, 'for _motor in (self.drive_motor, self.right_motor):');
+assertIncludes(motorGroupCode, '_motor.setThrottle(max(-1, min(1, (70) / 100.0))');
 motorGroupWorkspace.dispose();
 
 // ---------------------------------------------------------------------------
@@ -1004,7 +1006,7 @@ const extensionFile = generateAllOpmodes([
   {id: 'library-test', state: Blockly.serialization.workspaces.save(extensionWorkspace)},
 ]);
 assertIncludes(extensionFile, 'import wpilib');
-assertIncludes(extensionFile, 'InstantCommand(self.block_1)');
+assertIncludes(extensionFile, 'Command.no_requirements().executing(self.block_on_start)');
 extensionWorkspace.dispose();
 setExtensionInstances([]);
 

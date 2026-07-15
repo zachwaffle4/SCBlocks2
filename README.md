@@ -42,12 +42,12 @@ The app has two project modes selected from **Robot Setup**:
 
 - **Simple** is the beginner path: define motors once, then use their action
   blocks directly inside Teleop, Autonomous, and Utility OpModes.
-- **Advanced** introduces commands2 subsystems. Each subsystem owns the A301
+- **Advanced** introduces commands3 subsystems. Each subsystem owns the A301
   motors selected in Robot Setup and appears as its own editor tab. Its
   Scratch-style event hats — `when this subsystem starts` and `when subsystem
   command … is requested` — define reusable command groups. OpModes schedule
   those commands through a subsystem-and-command dropdown, so requirements are
-  enforced by commands2.
+  enforced by commands3.
 
 OpModes remain separate tabs and each generates one decorated RobotPy class.
 Their start hats run in parallel, while trigger hats remain active for the
