@@ -449,14 +449,8 @@ const scOpmodeDetails = {
 const scOnSetup = {
   type: "sc_on_setup",
   message0: "set up this OpMode",
-  message1: "%1",
-  args1: [
-    {
-      type: "input_statement",
-      name: "SETUP",
-      check: "Setup",
-    },
-  ],
+  hat: true,
+  nextStatement: "Setup",
   colour: motionColour,
   tooltip:
     "Runs direct setup lines while this OpMode is constructed. Motors and mechanisms belong in Robot Setup instead.",
@@ -857,6 +851,31 @@ const scRepeatCommands = {
   nextStatement: "Command",
   colour: controlColour,
   tooltip: "Repeats command blocks as a command-based sequence.",
+  helpUrl: "",
+};
+
+const scWhileCommands = {
+  type: "sc_while_commands",
+  message0: "repeat while %1",
+  args0: [
+    {
+      type: "input_value",
+      name: "CONDITION",
+      check: "Boolean",
+    },
+  ],
+  message1: "do %1",
+  args1: [
+    {
+      type: "input_statement",
+      name: "COMMANDS",
+      check: "Command",
+    },
+  ],
+  previousStatement: "Command",
+  nextStatement: "Command",
+  colour: controlColour,
+  tooltip: "Repeats command blocks while a condition is true.",
   helpUrl: "",
 };
 
@@ -1680,6 +1699,7 @@ export const blocks = Blockly.common.createBlockDefinitionsFromJsonArray([
   scMecanumStop,
   scWaitSeconds,
   scRepeatCommands,
+  scWhileCommands,
   scParallelCommands,
   scRaceCommands,
   scWaitUntil,

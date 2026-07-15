@@ -911,7 +911,7 @@ export const generateOpmodeClass = (
   const setupSections: string[] = [];
   for (const hat of workspace.getBlocksByType('sc_on_setup', false)) {
     const setupCode = normalizeStatementIndentation(
-      generator.statementToCode(hat, 'SETUP'),
+      hat.getNextBlock() ? generator.blockToCode(hat.getNextBlock()) as string : ''
     );
     if (setupCode) setupSections.push(setupCode);
   }
@@ -1152,28 +1152,37 @@ forBlock['sc_repeat_commands'] = function (
   generator: PythonGenerator,
 ) {
   const times = valueToCode(block, generator, 'TIMES', '2');
-  const innerCommands = generator.statementToCode(block, 'COMMANDS') || `${generator.INDENT}pass\n`;
-  return `for _ in range(int(${times})):\n${innerCommands}`;
+  const innerCommands = generator.statementToCode(block, 'COMMANDS');
+  return `for _ in range(int(${times})):\n${innerCommands}${generator.INDENT}await yield_()\n`;
+};
+
+forBlock['sc_while_commands'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const condition = valueToCode(block, generator, 'CONDITION', 'True');
+  const innerCommands = generator.statementToCode(block, 'COMMANDS');
+  return `while ${condition}:\n${innerCommands}${generator.INDENT}await yield_()\n`;
 };
 
 forBlock['sc_parallel_commands'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const firstCommands = generator.statementToCode(block, 'DO0') || `${generator.INDENT}pass\n`;
-  const secondCommands = generator.statementToCode(block, 'DO1') || `${generator.INDENT}pass\n`;
+  const firstCommands = generator.statementToCode(block, 'FIRST') || `${generator.INDENT}pass\n`;
+  const secondCommands = generator.statementToCode(block, 'SECOND') || `${generator.INDENT}pass\n`;
   const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
-  return `async def _parallel_${id}_0():\n${firstCommands}async def _parallel_${id}_1():\n${secondCommands}await await_all([Command.no_requirements().executing(_parallel_${id}_0), Command.no_requirements().executing(_parallel_${id}_1)])\n`;
+  return `async def _parallel_${id}_0():\n${firstCommands}async def _parallel_${id}_1():\n${secondCommands}await await_all([Command.no_requirements().executing(_parallel_${id}_0).named("parallel_0"), Command.no_requirements().executing(_parallel_${id}_1).named("parallel_1")])\n`;
 };
 
 forBlock['sc_race_commands'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const firstCommands = generator.statementToCode(block, 'DO0') || `${generator.INDENT}pass\n`;
-  const secondCommands = generator.statementToCode(block, 'DO1') || `${generator.INDENT}pass\n`;
+  const firstCommands = generator.statementToCode(block, 'FIRST') || `${generator.INDENT}pass\n`;
+  const secondCommands = generator.statementToCode(block, 'SECOND') || `${generator.INDENT}pass\n`;
   const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
-  return `async def _race_${id}_0():\n${firstCommands}async def _race_${id}_1():\n${secondCommands}await await_any([Command.no_requirements().executing(_race_${id}_0), Command.no_requirements().executing(_race_${id}_1)])\n`;
+  return `async def _race_${id}_0():\n${firstCommands}async def _race_${id}_1():\n${secondCommands}await await_any([Command.no_requirements().executing(_race_${id}_0).named("race_0"), Command.no_requirements().executing(_race_${id}_1).named("race_1")])\n`;
 };
 
 forBlock['sc_wait_until'] = function (

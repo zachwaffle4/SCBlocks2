@@ -640,6 +640,14 @@ const subsystemToolbox = () => ({
         },
         {
           kind: 'block',
+          type: 'sc_while_commands',
+          inputs: {
+            CONDITION: {shadow: booleanBlock()},
+            COMMANDS: {block: motorGroupSetPowerBlock()},
+          },
+        },
+        {
+          kind: 'block',
           type: 'sc_parallel_commands',
           inputs: {
             FIRST: {block: motorGroupSetPowerBlock()},
@@ -695,14 +703,6 @@ export const buildToolbox = ({
         {
           kind: 'block',
           type: 'sc_on_setup',
-          inputs: {
-            SETUP: {
-              block: {
-                kind: 'block',
-                type: 'sc_python_setup_line',
-              },
-            },
-          },
         },
         {
           kind: 'block',
@@ -777,6 +777,18 @@ export const buildToolbox = ({
           inputs: {
             TIMES: {
               shadow: numberShadow(3),
+            },
+            COMMANDS: {
+              block: defaultOpmodeCommandBlock(robotMode),
+            },
+          },
+        },
+        {
+          kind: 'block',
+          type: 'sc_while_commands',
+          inputs: {
+            CONDITION: {
+              shadow: booleanBlock(),
             },
             COMMANDS: {
               block: defaultOpmodeCommandBlock(robotMode),

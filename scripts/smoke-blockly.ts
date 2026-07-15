@@ -179,7 +179,7 @@ connectStatement(setupIf, 'DO0', setupThen);
 const setupElse = ifWorkspace.newBlock('sc_python_setup_line');
 setupElse.setFieldValue('self.ready = False', 'CODE');
 connectStatement(setupIf, 'ELSE', setupElse);
-connectStatement(setupHat, 'SETUP', setupIf);
+setupHat.nextConnection!.connect(setupIf.previousConnection!);
 
 pythonGenerator.init(ifWorkspace);
 const setupIfCode = generateOpmodeClass(ifWorkspace, pythonGenerator);
