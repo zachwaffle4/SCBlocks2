@@ -124,31 +124,31 @@ export const onExtensionsChanged = (listener: () => void) => {
 
 const scExtCall = {
   type: 'sc_ext_call',
-  message0: 'call %1 . %2 ( %3 )',
+  message0: 'call %1 . %2',
   args0: [
     {type: 'field_input', name: 'TARGET', text: 'self.device', spellcheck: false},
     {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
-    {type: 'field_input', name: 'ARGS', text: '', spellcheck: false},
   ],
   previousStatement: 'Command',
   nextStatement: 'Command',
   colour: extensionColour,
   tooltip: 'Escape hatch: call a RobotPy method as a command.',
   helpUrl: '',
+  mutator: 'sc_ext_args_mutator',
 };
 
 const scExtValue = {
   type: 'sc_ext_value',
-  message0: '%1 . %2 ( %3 )',
+  message0: '%1 . %2',
   args0: [
     {type: 'field_input', name: 'TARGET', text: 'self.device', spellcheck: false},
     {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
-    {type: 'field_input', name: 'ARGS', text: '', spellcheck: false},
   ],
   output: null,
   colour: extensionColour,
   tooltip: 'Escape hatch: read the result of a RobotPy method.',
   helpUrl: '',
+  mutator: 'sc_ext_args_mutator',
 };
 
 const scExtEnum = {
@@ -169,13 +169,12 @@ const scExtEnum = {
 // CLASS stays visible so a block remains understandable after it is copied.
 const scExtInstanceCall = {
   type: 'sc_ext_instance_call',
-  message0: 'call %1 %2 %3 . %4 ( %5 )',
+  message0: 'call %1 %2 %3 . %4',
   args0: [
     {type: 'field_label', text: 'on'},
     {type: 'field_label_serializable', name: 'CLASS', text: 'Object'},
     {type: 'field_extension_instance', name: 'INSTANCE'},
     {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
-    {type: 'field_input', name: 'ARGS', text: '', spellcheck: false},
   ],
   previousStatement: 'Command',
   nextStatement: 'Command',
@@ -183,23 +182,55 @@ const scExtInstanceCall = {
   tooltip:
     'Calls a method on a named project object. Add or edit objects in Libraries.',
   helpUrl: '',
+  mutator: 'sc_ext_args_mutator',
 };
 
 const scExtInstanceValue = {
   type: 'sc_ext_instance_value',
-  message0: '%1 %2 . %3 ( %4 )',
+  message0: '%1 %2 . %3',
   args0: [
     {type: 'field_label_serializable', name: 'CLASS', text: 'Object'},
     {type: 'field_extension_instance', name: 'INSTANCE'},
     {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
-    {type: 'field_input', name: 'ARGS', text: '', spellcheck: false},
   ],
   output: null,
   colour: extensionColour,
   tooltip:
     'Reads a method result from a named project object. Add or edit objects in Libraries.',
   helpUrl: '',
+  mutator: 'sc_ext_args_mutator',
 };
+
+Blockly.Extensions.registerMutator(
+  'sc_ext_args_mutator',
+  {
+    saveExtraState: function () {
+      return {
+        args: this.argumentNames_ || [],
+      };
+    },
+    loadExtraState: function (state: any) {
+      this.argumentNames_ = state.args || [];
+      this.updateShape_();
+    },
+    updateShape_: function () {
+      let i = 0;
+      while (this.getInput('ARG' + i)) {
+        this.removeInput('ARG' + i);
+        i++;
+      }
+      if (this.argumentNames_ && this.argumentNames_.length > 0) {
+        this.argumentNames_.forEach((arg: string, index: number) => {
+          this.appendValueInput('ARG' + index)
+            .setAlign(Blockly.inputs.Align.RIGHT)
+            .appendField(arg);
+        });
+      }
+    },
+  },
+  undefined,
+  []
+);
 
 export const extensionBlocks = Blockly.common.createBlockDefinitionsFromJsonArray([
   scExtCall,
@@ -219,10 +250,21 @@ const importForDotted = (generator: PythonGenerator, dotted: string) => {
   registerPythonImport(generator, root);
 };
 
+const getArgs = (block: Blockly.Block, generator: PythonGenerator) => {
+  const args = [];
+  let i = 0;
+  while (block.getInput('ARG' + i)) {
+    const val = generator.valueToCode(block, 'ARG' + i, Order.NONE) || 'None';
+    args.push(val);
+    i++;
+  }
+  return args.join(', ');
+};
+
 const callExpression = (block: Blockly.Block, generator: PythonGenerator) => {
   const target = (block.getFieldValue('TARGET') || 'self.device').trim();
   const method = block.getFieldValue('METHOD');
-  const args = (block.getFieldValue('ARGS') || '').trim();
+  const args = getArgs(block, generator);
   importForDotted(generator, target);
   return `${target}.${method}(${args})`;
 };
@@ -261,7 +303,7 @@ const instanceCallExpression = (
   if (!instance) return null;
   importForDotted(generator, instance.className);
   const method = block.getFieldValue('METHOD');
-  const args = (block.getFieldValue('ARGS') || '').trim();
+  const args = getArgs(block, generator);
   return `${extensionInstanceReference(instance)}.${method}(${args})`;
 };
 
@@ -294,7 +336,9 @@ const instanceCallBlockFor = (cls: ApiClass, method: {name: string; args: {name:
     CLASS: cls.className,
     INSTANCE: extensionInstancesForClass(cls.className)[0]?.id || '',
     METHOD: method.name,
-    ARGS: method.args.map((arg) => arg.name).join(', '),
+  },
+  extraState: {
+    args: method.args.map((arg) => arg.name),
   },
 });
 
@@ -305,7 +349,9 @@ const instanceValueBlockFor = (cls: ApiClass, method: {name: string; args: {name
     CLASS: cls.className,
     INSTANCE: extensionInstancesForClass(cls.className)[0]?.id || '',
     METHOD: method.name,
-    ARGS: method.args.map((arg) => arg.name).join(', '),
+  },
+  extraState: {
+    args: method.args.map((arg) => arg.name),
   },
 });
 

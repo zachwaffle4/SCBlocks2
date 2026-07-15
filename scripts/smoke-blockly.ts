@@ -211,7 +211,7 @@ connectNext(startHat, runForSeconds);
 const extCall = workspace.newBlock('sc_ext_call');
 extCall.setFieldValue('self.gyro', 'TARGET');
 extCall.setFieldValue('reset', 'METHOD');
-extCall.setFieldValue('', 'ARGS');
+// ARGS is handled by mutator
 runForSeconds.nextConnection!.connect(extCall.previousConnection!);
 
 // A second start hat should run beside the first one, not after it.
@@ -996,7 +996,7 @@ assert(
 extensionCall.setFieldValue('wpilib.Timer', 'CLASS');
 extensionCall.setFieldValue(matchTimer.id, 'INSTANCE');
 extensionCall.setFieldValue('restart', 'METHOD');
-extensionCall.setFieldValue('', 'ARGS');
+// ARGS is handled by mutator
 connectNext(extensionStart, extensionCall);
 pythonGenerator.init(extensionWorkspace);
 const extensionCode = generateOpmodeClass(extensionWorkspace, pythonGenerator);

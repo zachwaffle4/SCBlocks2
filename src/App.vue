@@ -1675,26 +1675,34 @@ onBeforeUnmount(() => {
               <li
                 v-for="object in extensionObjects"
                 :key="object.id"
-                class="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)_auto] sm:items-center"
+                class="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center"
               >
                 <UInput
+                  class="w-full sm:w-1/3 shrink-0"
                   :model-value="object.name"
                   placeholder="object name"
                   @update:model-value="updateExtensionObjectName(object.id, $event)"
                 />
-                <UInput
-                  :model-value="object.args"
-                  placeholder="constructor arguments (optional)"
-                  :ui="{ leading: 'font-mono text-xs' }"
-                  @update:model-value="updateExtensionObjectArgs(object.id, $event)"
-                >
-                  <template #leading>
-                    <span class="max-w-24 truncate text-xs font-bold text-slate-400">{{ object.className }}</span>
-                  </template>
-                </UInput>
-                <UButton size="xs" color="error" variant="soft" @click="removeExtensionObject(object.id)">
-                  Remove
-                </UButton>
+                <div class="flex min-w-0 flex-1 items-center gap-2">
+                  <span class="shrink-0 truncate font-mono text-xs font-semibold text-slate-500" :title="object.className">
+                    {{ object.className }}
+                  </span>
+                  <UInput
+                    class="min-w-0 flex-1"
+                    :model-value="object.args"
+                    placeholder="constructor arguments (optional)"
+                    :ui="{ base: 'font-mono text-xs' }"
+                    @update:model-value="updateExtensionObjectArgs(object.id, $event)"
+                  />
+                </div>
+                <div class="flex shrink-0 items-center gap-1">
+                  <UButton size="xs" color="error" variant="soft" @click="removeExtensionObject(object.id)">
+                    Remove
+                  </UButton>
+                  <UButton size="xs" color="primary" variant="soft" @click="addExtensionObject(object.className)">
+                    + Object
+                  </UButton>
+                </div>
               </li>
             </ul>
           </template>
@@ -1723,7 +1731,7 @@ onBeforeUnmount(() => {
             variant="soft"
           />
 
-          <ul v-else class="grid min-h-0 gap-1 overflow-y-auto">
+          <ul v-else class="grid gap-1">
             <li
               v-for="cls in filteredClasses"
               :key="cls.className"
