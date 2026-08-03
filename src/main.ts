@@ -1,8 +1,10 @@
 import './index.css';
 
-// Blockly's standard blocks (math_number, logic_compare, …) are registered as a
-// side effect. Importing them here instead of pulling the whole `blockly` entry
-// point keeps the unused JavaScript/PHP/Lua/Dart generators out of the bundle.
+// Importing `blockly/core` rather than the whole `blockly` entry point keeps the
+// unused JavaScript/PHP/Lua/Dart generators out of the bundle, but it also means
+// the locale and the standard blocks are no longer set up for us. Order matters:
+// the messages have to be installed before the blocks that reference them.
+import './blocklyLocale';
 import 'blockly/blocks';
 
 import ui from '@nuxt/ui/vue-plugin';

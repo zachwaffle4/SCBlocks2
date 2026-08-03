@@ -1,4 +1,8 @@
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
+// Mirror src/main.ts: core + locale + standard blocks, rather than the `blockly`
+// entry point that bundles every language generator. The locale matters — an
+// empty Blockly.Msg leaves every %{BKY_*} reference unresolved.
+import '../src/blocklyLocale';
 import 'blockly/blocks';
 import { pythonGenerator } from 'blockly/python';
 import { blocks } from '../src/blocks/text';
@@ -49,6 +53,14 @@ const assertIncludes = (haystack: string, needle: string) => {
     `Expected generated code to include: ${needle}`,
   );
 };
+
+// The app imports blockly/core, so the English locale has to be installed by
+// hand; without it every standard block's %{BKY_*} reference breaks and the
+// palette will not render.
+assert(
+  Blockly.Msg['CONTROLS_IF_MSG_IF'] === 'if',
+  'Blockly messages should be loaded (see src/blocklyLocale.ts)',
+);
 
 registerDeviceField();
 registerMechanismField();
