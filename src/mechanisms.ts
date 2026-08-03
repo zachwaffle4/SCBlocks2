@@ -31,8 +31,7 @@ const notify = () => {
   for (const listener of listeners) listener();
 };
 
-const newMechanismId = () =>
-  `mechanism-${Date.now().toString(36)}-${nextId++}`;
+const newMechanismId = () => `mechanism-${Date.now().toString(36)}-${nextId++}`;
 
 const uniqueName = (base: string) => {
   const taken = new Set(mechanisms.map((mechanism) => mechanism.name));
@@ -45,7 +44,11 @@ const uniqueName = (base: string) => {
 
 const normalizeMotorIds = (motorIds: unknown) =>
   Array.isArray(motorIds)
-    ? [...new Set(motorIds.filter((id): id is string => typeof id === 'string'))]
+    ? [
+        ...new Set(
+          motorIds.filter((id): id is string => typeof id === 'string'),
+        ),
+      ]
     : [];
 
 /** A newly added subsystem starts with the two useful Scratch-style events. */
@@ -122,7 +125,11 @@ const legacyMotorIds = (value: unknown) => {
 };
 
 const directMotorCommands = (
-  type: 'sc_motor_group_set_power' | 'sc_motor_group_stop' | 'sc_subsystem_set_power' | 'sc_subsystem_stop',
+  type:
+    | 'sc_motor_group_set_power'
+    | 'sc_motor_group_stop'
+    | 'sc_subsystem_set_power'
+    | 'sc_subsystem_stop',
   block: SerializedBlock,
   mechanismMotorIds: string[],
 ) => {
@@ -135,9 +142,7 @@ const directMotorCommands = (
   );
   const next = block.next;
   const commands: SerializedBlock[] = motorIds.map((id) => ({
-    type: type.endsWith('set_power')
-      ? 'sc_motor_set_power'
-      : 'sc_motor_stop',
+    type: type.endsWith('set_power') ? 'sc_motor_set_power' : 'sc_motor_stop',
     fields: {DEVICE: id},
     ...(type.endsWith('set_power') && block.inputs?.POWER
       ? {inputs: {POWER: block.inputs.POWER}}
@@ -196,8 +201,8 @@ const migrateSubsystemState = (
     }
     visit(block.next?.block);
   };
-  const blocks = (migrated as {blocks?: {blocks?: SerializedBlock[]}})
-    .blocks?.blocks;
+  const blocks = (migrated as {blocks?: {blocks?: SerializedBlock[]}}).blocks
+    ?.blocks;
   for (const block of blocks || []) visit(block);
   return migrated;
 };
@@ -216,9 +221,14 @@ export const addMechanism = (partial: Partial<Mechanism> = {}): Mechanism => {
   const motorIds = normalizeMotorIds(partial.motorIds);
   const mechanism: Mechanism = {
     id: partial.id || newMechanismId(),
-    name: uniqueName(partial.name?.trim() || `mechanism_${mechanisms.length + 1}`),
+    name: uniqueName(
+      partial.name?.trim() || `mechanism_${mechanisms.length + 1}`,
+    ),
     motorIds,
-    state: migrateSubsystemState(partial.state || makeMechanismState(), motorIds),
+    state: migrateSubsystemState(
+      partial.state || makeMechanismState(),
+      motorIds,
+    ),
   };
   mechanisms = [...mechanisms, mechanism];
   notify();
@@ -239,7 +249,10 @@ export const updateMechanism = (id: string, patch: Partial<Mechanism>) => {
             id: mechanism.id,
             name: patch.name?.trim() || mechanism.name,
             motorIds,
-            state: migrateSubsystemState(patch.state || mechanism.state, motorIds),
+            state: migrateSubsystemState(
+              patch.state || mechanism.state,
+              motorIds,
+            ),
           };
         })()
       : mechanism,
@@ -301,17 +314,20 @@ export const mechanismCommandNames = (mechanism: Mechanism) => {
 type DropdownOption = [string, string];
 
 const mechanismOptions = (currentValue?: string): DropdownOption[] => {
-  const options = mechanisms.map((mechanism) => [mechanism.name, mechanism.id] as DropdownOption);
+  const options = mechanisms.map(
+    (mechanism) => [mechanism.name, mechanism.id] as DropdownOption,
+  );
   if (!options.length) return [[EMPTY_MECHANISM_LABEL, '']];
-  if (currentValue && !mechanisms.some((mechanism) => mechanism.id === currentValue)) {
+  if (
+    currentValue &&
+    !mechanisms.some((mechanism) => mechanism.id === currentValue)
+  ) {
     options.push([MISSING_MECHANISM_LABEL, currentValue]);
   }
   return options;
 };
 
-function mechanismMenuGenerator(
-  this: Blockly.FieldDropdown,
-): DropdownOption[] {
+function mechanismMenuGenerator(this: Blockly.FieldDropdown): DropdownOption[] {
   const current = this.getValue?.();
   return mechanismOptions(typeof current === 'string' ? current : undefined);
 }
@@ -339,7 +355,9 @@ const mechanismCommandOptions = (
 ): DropdownOption[] => {
   const mechanism = getMechanism(mechanismId);
   const options = mechanism
-    ? mechanismCommandNames(mechanism).map((name) => [name, name] as DropdownOption)
+    ? mechanismCommandNames(mechanism).map(
+        (name) => [name, name] as DropdownOption,
+      )
     : [];
   if (!options.length) return [[EMPTY_COMMAND_LABEL, ''] as DropdownOption];
   if (currentValue && !options.some(([, name]) => name === currentValue)) {
@@ -391,7 +409,10 @@ export const refreshMechanismFields = (workspace: Blockly.Workspace) => {
   for (const block of workspace.getAllBlocks(false)) {
     for (const input of block.inputList) {
       for (const field of input.fieldRow) {
-        if (field instanceof FieldMechanism || field instanceof FieldMechanismCommand) {
+        if (
+          field instanceof FieldMechanism ||
+          field instanceof FieldMechanismCommand
+        ) {
           field.forceRerender();
         }
       }

@@ -1,7 +1,5 @@
 /** The project-wide commands architecture selected in Robot Setup. */
-export type RobotMode =
-  | 'simple'
-  | 'advanced';
+export type RobotMode = 'simple' | 'advanced';
 
 let robotMode: RobotMode = 'simple';
 const listeners = new Set<() => void>();

@@ -7,13 +7,16 @@
  * time the user opens the extensions picker. This keeps extensions behaving like
  * extensions: nothing is loaded until you ask for it.
  */
-import type {
+import type {ApiClass, ApiMethod, ApiModule} from './generated/robotpy-api';
+
+export type {
+  ApiArg,
   ApiClass,
+  ApiEnum,
   ApiMethod,
   ApiModule,
+  ApiVar,
 } from './generated/robotpy-api';
-
-export type {ApiArg, ApiClass, ApiEnum, ApiMethod, ApiModule, ApiVar} from './generated/robotpy-api';
 
 type Catalog = {
   classes: ApiClass[];

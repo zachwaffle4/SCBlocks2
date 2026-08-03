@@ -1,14 +1,14 @@
 # Redone SystemCore Blocks Interface
 
 # Goals
+
 - No prior knowledge necessary
 
 Everything about the UI and the blocks themselves need to be usable by people as young as 6th grade without any programming experience.
-Ideally, it should be as intuitive as Scratch or Spike Prime coding and require very little docs. 
+Ideally, it should be as intuitive as Scratch or Spike Prime coding and require very little docs.
 This means the interface needs to be fully understandable without a tutorial.
 
-
-- The blocks experience is highest priority. 
+- The blocks experience is highest priority.
 
 Converting blocks to text code should be readable and supported, but blocks coding experience should come first and foremost and should not be sacrificed for better converted code.
 
@@ -18,7 +18,6 @@ The interface should feel familiar to previous users of Scratch and FLL Spike Pr
 and the mental models should be preserved where possible.
 
 For example, the color scheme should be the same, there should be direct equivalents for blocks where possible, etc.
-
 
 # Non-Goals
 
@@ -42,7 +41,7 @@ The app has two project modes selected from **Robot Setup**:
 - **Advanced** introduces commands3 subsystems. Each subsystem owns the A301
   motors selected in Robot Setup and appears as its own editor tab. Its
   Scratch-style event hats — `when this mechanism starts` and `when mechanism
-  command … is requested` — define reusable command groups. Mechanism editors
+command … is requested` — define reusable command groups. Mechanism editors
   also include the WPILib/REV sensor drawers and the generated RobotPy
   Extensions drawer, so sensor readings, waits, control flow, and custom API
   calls can live together in the mechanism. Sensors and named extension objects

@@ -47,25 +47,36 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const asProject = (value: unknown): StoredProject | null => {
   if (!isRecord(value) || !Array.isArray(value.tabs)) return null;
-  const createdAt = typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString();
-  const updatedAt = typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
+  const createdAt =
+    typeof value.createdAt === 'string'
+      ? value.createdAt
+      : new Date().toISOString();
+  const updatedAt =
+    typeof value.updatedAt === 'string' ? value.updatedAt : createdAt;
   return {
     id: typeof value.id === 'string' && value.id ? value.id : newProjectId(),
-    name: typeof value.name === 'string' && value.name.trim() ? value.name.trim() : 'Untitled robot',
+    name:
+      typeof value.name === 'string' && value.name.trim()
+        ? value.name.trim()
+        : 'Untitled robot',
     createdAt,
     updatedAt,
     tabs: clone(value.tabs) as OpModeTab[],
     activeTabId: typeof value.activeTabId === 'string' ? value.activeTabId : '',
-    devices: Array.isArray(value.devices) ? clone(value.devices) as Device[] : [],
+    devices: Array.isArray(value.devices)
+      ? (clone(value.devices) as Device[])
+      : [],
     extensions: Array.isArray(value.extensions)
-      ? value.extensions.filter((item): item is string => typeof item === 'string')
+      ? value.extensions.filter(
+          (item): item is string => typeof item === 'string',
+        )
       : [],
     extensionInstances: Array.isArray(value.extensionInstances)
-      ? clone(value.extensionInstances) as ExtensionInstance[]
+      ? (clone(value.extensionInstances) as ExtensionInstance[])
       : [],
     robotMode: value.robotMode === 'advanced' ? 'advanced' : 'simple',
     mechanisms: Array.isArray(value.mechanisms)
-      ? clone(value.mechanisms) as Mechanism[]
+      ? (clone(value.mechanisms) as Mechanism[])
       : [],
   };
 };
@@ -75,11 +86,17 @@ const readStore = (): ProjectStore => {
   if (!raw) return emptyStore();
   try {
     const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed) || !Array.isArray(parsed.projects)) return emptyStore();
+    if (!isRecord(parsed) || !Array.isArray(parsed.projects))
+      return emptyStore();
     return {
       version: 1,
-      activeProjectId: typeof parsed.activeProjectId === 'string' ? parsed.activeProjectId : null,
-      projects: parsed.projects.map(asProject).filter((project): project is StoredProject => project !== null),
+      activeProjectId:
+        typeof parsed.activeProjectId === 'string'
+          ? parsed.activeProjectId
+          : null,
+      projects: parsed.projects
+        .map(asProject)
+        .filter((project): project is StoredProject => project !== null),
     };
   } catch (error) {
     console.warn('Ignoring unreadable SystemCore project store:', error);
@@ -103,8 +120,10 @@ export const loadStoredProject = (id: string) => {
 
 export const loadActiveStoredProject = () => {
   const store = readStore();
-  const project = store.projects.find((candidate) => candidate.id === store.activeProjectId)
-    ?? store.projects[0];
+  const project =
+    store.projects.find(
+      (candidate) => candidate.id === store.activeProjectId,
+    ) ?? store.projects[0];
   return project ? clone(project) : null;
 };
 
@@ -148,7 +167,8 @@ export const createStoredProject = (name: string, data: ProjectData) =>
 export const deleteStoredProject = (id: string) => {
   const store = readStore();
   store.projects = store.projects.filter((project) => project.id !== id);
-  if (store.activeProjectId === id) store.activeProjectId = store.projects[0]?.id ?? null;
+  if (store.activeProjectId === id)
+    store.activeProjectId = store.projects[0]?.id ?? null;
   writeStore(store);
   return store.activeProjectId;
 };
@@ -162,12 +182,17 @@ export const setActiveStoredProject = (id: string) => {
 };
 
 export const exportStoredProject = (project: StoredProject) =>
-  JSON.stringify({format: 'systemcore-blocks-project', version: 1, project}, null, 2);
+  JSON.stringify(
+    {format: 'systemcore-blocks-project', version: 1, project},
+    null,
+    2,
+  );
 
 export const parseProjectBackup = (text: string): StoredProject | null => {
   try {
     const parsed = JSON.parse(text) as unknown;
-    if (!isRecord(parsed) || parsed.format !== 'systemcore-blocks-project') return null;
+    if (!isRecord(parsed) || parsed.format !== 'systemcore-blocks-project')
+      return null;
     return asProject(parsed.project);
   } catch {
     return null;
@@ -183,9 +208,19 @@ export const loadLegacyProject = (): ProjectData | null => {
   const raw = browserStorage()?.getItem(LEGACY_PROJECT_STORE_KEY);
   if (!raw) return null;
   try {
-    const project = asProject({...JSON.parse(raw), id: 'legacy', name: 'Recovered robot'});
+    const project = asProject({
+      ...JSON.parse(raw),
+      id: 'legacy',
+      name: 'Recovered robot',
+    });
     if (!project) return null;
-    const {id: _id, name: _name, createdAt: _createdAt, updatedAt: _updatedAt, ...data} = project;
+    const {
+      id: _id,
+      name: _name,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      ...data
+    } = project;
     return data;
   } catch (error) {
     console.warn('Ignoring unreadable legacy SystemCore project:', error);

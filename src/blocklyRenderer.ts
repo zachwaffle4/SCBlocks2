@@ -1,10 +1,10 @@
-import * as Blockly from "blockly";
+import * as Blockly from 'blockly';
 
-const RENDERER_NAME = "systemcore_zelos";
+const RENDERER_NAME = 'systemcore_zelos';
 const SIDE_BY_SIDE_COMMAND_GROUPS = new Set([
-  "sc_parallel_commands",
-  "sc_race_commands",
-  "sc_deadline_commands",
+  'sc_parallel_commands',
+  'sc_race_commands',
+  'sc_deadline_commands',
 ]);
 
 class SystemCoreRenderInfo extends Blockly.zelos.RenderInfo {
@@ -16,8 +16,8 @@ class SystemCoreRenderInfo extends Blockly.zelos.RenderInfo {
     const branchGap = 24;
     const branchRow = this.inputRows.find(
       (row) =>
-        row.elements.filter((element) =>
-          element instanceof Blockly.zelos.StatementInput
+        row.elements.filter(
+          (element) => element instanceof Blockly.zelos.StatementInput,
         ).length > 1,
     );
     if (!branchRow) return;
@@ -27,7 +27,8 @@ class SystemCoreRenderInfo extends Blockly.zelos.RenderInfo {
         element instanceof Blockly.zelos.StatementInput,
     );
     const branchesWidth = branchInputs.reduce(
-      (width, input) => width + Math.max(input.connectedBlockWidth, input.width),
+      (width, input) =>
+        width + Math.max(input.connectedBlockWidth, input.width),
       0,
     );
     const requiredWidth =
@@ -91,16 +92,14 @@ class SystemCoreDrawer extends Blockly.zelos.Drawer {
       `h ${wallWidth}`,
       `v ${row.height}`,
       `h ${-wallWidth}`,
-      "z",
-    ].join(" ");
-    pathObject.setOutlinePath("systemcore-branch-separator", separatorPath);
-    const separator = pathObject.getOutlinePath(
-      "systemcore-branch-separator",
-    );
-    separator.setAttribute("fill", this.block_.getColour());
-    separator.setAttribute("stroke", "none");
+      'z',
+    ].join(' ');
+    pathObject.setOutlinePath('systemcore-branch-separator', separatorPath);
+    const separator = pathObject.getOutlinePath('systemcore-branch-separator');
+    separator.setAttribute('fill', this.block_.getColour());
+    separator.setAttribute('stroke', 'none');
     separator.style.fill = this.block_.getColour();
-    separator.style.stroke = "none";
+    separator.style.stroke = 'none';
     let branchX = firstBranchX;
 
     branchInputs.forEach((branch, index) => {
@@ -110,12 +109,12 @@ class SystemCoreDrawer extends Blockly.zelos.Drawer {
         const detailPath = [
           `M ${notchRight} ${row.yPos}`,
           shape.pathRight,
-          "z",
-        ].join(" ");
+          'z',
+        ].join(' ');
         const pathName = `systemcore-branch-notch-${index}`;
         pathObject.setOutlinePath(pathName, detailPath);
         const detail = pathObject.getOutlinePath(pathName);
-        detail.setAttribute("fill", this.block_.getColour());
+        detail.setAttribute('fill', this.block_.getColour());
       }
 
       branchX += Math.max(branch.connectedBlockWidth, branch.width) + branchGap;
@@ -142,8 +141,12 @@ class SystemCoreDrawer extends Blockly.zelos.Drawer {
       }
 
       const x = branchX + element.notchOffset;
-      element.connectionModel.setOffsetInBlock(this.info_.RTL ? -x : x, row.yPos);
-      branchX += Math.max(element.connectedBlockWidth, element.width) + branchGap;
+      element.connectionModel.setOffsetInBlock(
+        this.info_.RTL ? -x : x,
+        row.yPos,
+      );
+      branchX +=
+        Math.max(element.connectedBlockWidth, element.width) + branchGap;
     }
   }
 }
@@ -169,4 +172,4 @@ export const registerSystemCoreRenderer = () => {
   registered = true;
 };
 
-export { RENDERER_NAME as systemCoreRendererName };
+export {RENDERER_NAME as systemCoreRendererName};

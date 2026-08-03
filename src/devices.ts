@@ -129,9 +129,14 @@ const deviceOptions = (currentValue?: string): DropdownOption[] => {
   if (!options.length) return [[EMPTY_DEVICE_LABEL, '']];
   // Keep a dangling reference (a deleted motor) visible instead of silently
   // repointing the block at whichever motor happens to be first.
-  if (currentValue && !visibleDevices.some((device) => device.id === currentValue)) {
+  if (
+    currentValue &&
+    !visibleDevices.some((device) => device.id === currentValue)
+  ) {
     options.push([
-      getDevice(currentValue) ? '(not in this subsystem)' : MISSING_DEVICE_LABEL,
+      getDevice(currentValue)
+        ? '(not in this subsystem)'
+        : MISSING_DEVICE_LABEL,
       currentValue,
     ]);
   }
@@ -232,9 +237,8 @@ export const parseMovementMotorsConfig = (
   }
 };
 
-export const serializeMovementMotorsConfig = (
-  config: MovementMotorsConfig,
-) => JSON.stringify(normalizeMovementMotorsConfig(config));
+export const serializeMovementMotorsConfig = (config: MovementMotorsConfig) =>
+  JSON.stringify(normalizeMovementMotorsConfig(config));
 
 const movementMotorsValue = (config = defaultMovementMotorsConfig()) =>
   serializeMovementMotorsConfig(config);
@@ -244,9 +248,7 @@ const deviceLabel = (id: string, fallback: string) => {
   return getDevice(id)?.name ?? MISSING_DEVICE_LABEL;
 };
 
-export const movementMotorsSummary = (
-  value: string | null | undefined,
-) => {
+export const movementMotorsSummary = (value: string | null | undefined) => {
   const config = parseMovementMotorsConfig(value);
   if (config.kind === 'mecanum') {
     return [
@@ -474,7 +476,10 @@ let fieldRegistered = false;
 export const registerDeviceField = () => {
   if (fieldRegistered) return;
   Blockly.fieldRegistry.register(DEVICE_FIELD_TYPE, FieldDevice);
-  Blockly.fieldRegistry.register(MOVEMENT_MOTORS_FIELD_TYPE, FieldMovementMotors);
+  Blockly.fieldRegistry.register(
+    MOVEMENT_MOTORS_FIELD_TYPE,
+    FieldMovementMotors,
+  );
   fieldRegistered = true;
 };
 
@@ -487,7 +492,8 @@ export const refreshDeviceFields = (workspace: Blockly.Workspace) => {
     for (const input of block.inputList) {
       for (const field of input.fieldRow) {
         if (
-          field instanceof FieldDevice || field instanceof FieldMovementMotors
+          field instanceof FieldDevice ||
+          field instanceof FieldMovementMotors
         ) {
           field.forceRerender();
         }

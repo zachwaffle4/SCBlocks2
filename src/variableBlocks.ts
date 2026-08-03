@@ -47,7 +47,12 @@ const scObjectCall = {
   message0: '%1 . %2',
   args0: [
     {type: 'input_value', name: 'OBJECT'},
-    {type: 'field_input', name: 'METHOD', text: 'method_name', spellcheck: false},
+    {
+      type: 'field_input',
+      name: 'METHOD',
+      text: 'method_name',
+      spellcheck: false,
+    },
   ],
   inputsInline: true,
   previousStatement: null,
@@ -63,7 +68,12 @@ const scObjectValue = {
   message0: '%1 . %2',
   args0: [
     {type: 'input_value', name: 'OBJECT'},
-    {type: 'field_input', name: 'METHOD', text: 'method_name', spellcheck: false},
+    {
+      type: 'field_input',
+      name: 'METHOD',
+      text: 'method_name',
+      spellcheck: false,
+    },
   ],
   inputsInline: true,
   output: null,
@@ -73,13 +83,14 @@ const scObjectValue = {
   mutator: 'sc_ext_args_mutator',
 };
 
-export const variableBlockDefinitions = Blockly.common.createBlockDefinitionsFromJsonArray([
-  scNewObject,
-  scNewObjectContainer,
-  scNewObjectItem,
-  scObjectCall,
-  scObjectValue,
-]);
+export const variableBlockDefinitions =
+  Blockly.common.createBlockDefinitionsFromJsonArray([
+    scNewObject,
+    scNewObjectContainer,
+    scNewObjectItem,
+    scObjectCall,
+    scObjectValue,
+  ]);
 
 Blockly.Extensions.registerMutator(
   'sc_new_object_mutator',
@@ -95,8 +106,13 @@ Blockly.Extensions.registerMutator(
       this.updateShape_();
     },
 
-    decompose(this: any, mutatorWorkspace: Blockly.WorkspaceSvg): Blockly.Block {
-      const containerBlock = mutatorWorkspace.newBlock('sc_new_object_container');
+    decompose(
+      this: any,
+      mutatorWorkspace: Blockly.WorkspaceSvg,
+    ): Blockly.Block {
+      const containerBlock = mutatorWorkspace.newBlock(
+        'sc_new_object_container',
+      );
       (containerBlock as any).initSvg();
       let connection = containerBlock.nextConnection;
       for (let i = 0; i < this.itemCount_; i++) {
@@ -179,7 +195,10 @@ export const registerVariableBlocks = () => {
   }
 };
 
-const collectArgs = (block: Blockly.Block, generator: PythonGenerator): string => {
+const collectArgs = (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+): string => {
   const args: string[] = [];
   let i = 0;
   while (block.getInput('ARG' + i)) {
@@ -189,10 +208,19 @@ const collectArgs = (block: Blockly.Block, generator: PythonGenerator): string =
   return args.join(', ');
 };
 
-export const variableForBlock: Record<string, (block: Blockly.Block, generator: PythonGenerator) => [string, Order] | string> = {
-  sc_new_object(block: Blockly.Block, generator: PythonGenerator): [string, Order] {
+export const variableForBlock: Record<
+  string,
+  (block: Blockly.Block, generator: PythonGenerator) => [string, Order] | string
+> = {
+  sc_new_object(
+    block: Blockly.Block,
+    generator: PythonGenerator,
+  ): [string, Order] {
     const className = (block.getFieldValue('CLASS') || 'object').trim();
-    return [`${className}(${collectArgs(block, generator)})`, Order.FUNCTION_CALL];
+    return [
+      `${className}(${collectArgs(block, generator)})`,
+      Order.FUNCTION_CALL,
+    ];
   },
 
   sc_object_call(block: Blockly.Block, generator: PythonGenerator): string {
@@ -201,9 +229,15 @@ export const variableForBlock: Record<string, (block: Blockly.Block, generator: 
     return `${obj}.${method}(${collectArgs(block, generator)})\n`;
   },
 
-  sc_object_value(block: Blockly.Block, generator: PythonGenerator): [string, Order] {
+  sc_object_value(
+    block: Blockly.Block,
+    generator: PythonGenerator,
+  ): [string, Order] {
     const obj = generator.valueToCode(block, 'OBJECT', Order.MEMBER) || 'None';
     const method = (block.getFieldValue('METHOD') || 'method').trim();
-    return [`${obj}.${method}(${collectArgs(block, generator)})`, Order.FUNCTION_CALL];
+    return [
+      `${obj}.${method}(${collectArgs(block, generator)})`,
+      Order.FUNCTION_CALL,
+    ];
   },
 };

@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import * as Blockly from "blockly";
-import { registerContinuousToolbox } from "@blockly/continuous-toolbox";
-import { pythonGenerator } from "blockly/python";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { createHighlighterCore, type HighlighterCore } from "shiki/core";
-import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
-import pythonLang from "shiki/langs/python.mjs";
-import lightTheme from "shiki/themes/material-theme-lighter.mjs";
+import * as Blockly from 'blockly';
+import {registerContinuousToolbox} from '@blockly/continuous-toolbox';
+import {pythonGenerator} from 'blockly/python';
+import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
+import {createHighlighterCore, type HighlighterCore} from 'shiki/core';
+import {createJavaScriptRegexEngine} from 'shiki/engine/javascript';
+import pythonLang from 'shiki/langs/python.mjs';
+import lightTheme from 'shiki/themes/material-theme-lighter.mjs';
 import {
   registerSystemCoreRenderer,
   systemCoreRendererName,
-} from "./blocklyRenderer";
-import { systemCoreTheme } from "./blocklyTheme";
-import { blocks } from "./blocks/text";
+} from './blocklyRenderer';
+import {systemCoreTheme} from './blocklyTheme';
+import {blocks} from './blocks/text';
 import {
   addDevice,
   getDevices,
@@ -24,7 +24,7 @@ import {
   setDevices,
   updateDevice,
   type Device,
-} from "./devices";
+} from './devices';
 import {
   addMechanism,
   getMechanisms,
@@ -35,7 +35,7 @@ import {
   setMechanisms,
   updateMechanism,
   type Mechanism,
-} from "./mechanisms";
+} from './mechanisms';
 import {
   addExtensionInstance,
   getExtensionInstances,
@@ -45,11 +45,11 @@ import {
   setExtensionInstances,
   updateExtensionInstance,
   type ExtensionInstance,
-} from "./extensionInstances";
-import { forBlock } from "./generators/python";
-import { buildToolbox } from "./toolbox";
-import { registerTypedVariableCategory } from "./variableCategory";
-import { registerVariableBlocks, variableForBlock } from "./variableBlocks";
+} from './extensionInstances';
+import {forBlock} from './generators/python';
+import {buildToolbox} from './toolbox';
+import {registerTypedVariableCategory} from './variableCategory';
+import {registerVariableBlocks, variableForBlock} from './variableBlocks';
 import {
   addExtension,
   ensureCatalogLoaded,
@@ -62,8 +62,8 @@ import {
   setLoadedExtensions,
   WPILIB_OUTPUTS_EXTENSION_ID,
   WPILIB_SENSORS_EXTENSION_ID,
-} from "./extensions";
-import { simpleName } from "./apiCatalog";
+} from './extensions';
+import {simpleName} from './apiCatalog';
 import {
   generateAllOpmodes,
   makeOpmodeState,
@@ -73,7 +73,7 @@ import {
   type OpModeTab,
   type OpModeType,
   type WorkspaceState,
-} from "./opmodes";
+} from './opmodes';
 import {
   createStoredProject,
   deleteStoredProject,
@@ -88,24 +88,24 @@ import {
   setActiveStoredProject,
   type ProjectData,
   type StoredProject,
-} from "./projectStorage";
+} from './projectStorage';
 import {
   getRobotMode,
   onRobotModeChanged,
   setRobotMode,
   type RobotMode,
-} from "./robotMode";
+} from './robotMode';
 
 // v3: opmodes are separate hat blocks (details / setup / start / trigger), and
 // motors live in a project-level registry rather than as per-tab variables.
 const blocklyDiv = ref<HTMLDivElement | null>(null);
-const generatedCode = ref("");
-const generationStatus = ref("Ready");
+const generatedCode = ref('');
+const generationStatus = ref('Ready');
 
 // Syntax-highlighted HTML for the generated Python, produced by Shiki. Shiki's
 // highlighter is async, so we render into `highlightedCode` off a watcher and
 // fall back to the plain <pre><code> until the first pass resolves.
-const highlightedCode = ref("");
+const highlightedCode = ref('');
 
 // A single fine-grained Shiki highlighter, bundling only Python + one theme and
 // the JS regex engine (no WASM), created lazily on first use.
@@ -127,27 +127,27 @@ watch(
     try {
       const highlighter = await getHighlighter();
       highlightedCode.value = highlighter.codeToHtml(code, {
-        lang: "python",
-        theme: "material-theme-lighter",
+        lang: 'python',
+        theme: 'material-theme-lighter',
       });
     } catch (error) {
-      console.warn("Failed to highlight generated code:", error);
-      highlightedCode.value = "";
+      console.warn('Failed to highlight generated code:', error);
+      highlightedCode.value = '';
     }
   },
-  { immediate: true },
+  {immediate: true},
 );
 
 // OpMode tabs.
 const tabs = ref<OpModeTab[]>([]);
-const activeTabId = ref("");
-const activeSubsystemId = ref("");
+const activeTabId = ref('');
+const activeSubsystemId = ref('');
 const opmodeSettingsOpen = ref(false);
 
 // Robot Setup is a project-level source of truth. Blockly fields only store
 // stable ids; these reactive mirrors keep the setup UI in sync with codegen.
 const motorsOpen = ref(false);
-const setupStep = ref<"motors" | "subsystems">("motors");
+const setupStep = ref<'motors' | 'subsystems'>('motors');
 const motors = ref<Device[]>([]);
 const mechanisms = ref<Mechanism[]>([]);
 const robotMode = ref<RobotMode>(getRobotMode());
@@ -155,19 +155,21 @@ const robotMode = ref<RobotMode>(getRobotMode());
 // A project is a named snapshot rather than the old single local-storage blob.
 const projectsOpen = ref(false);
 const storedProjects = ref<StoredProject[]>([]);
-const activeProjectId = ref("");
-const projectName = ref("My Robot");
+const activeProjectId = ref('');
+const projectName = ref('My Robot');
 const projectImportFile = ref<File | null>(null);
 let restoringProject = false;
 
 // Extensions picker state.
 const pickerOpen = ref(false);
-const pickerQuery = ref("");
-const catalogClasses = ref<{
-  className: string;
-  module: string;
-  isComponent: boolean;
-}[]>([]);
+const pickerQuery = ref('');
+const catalogClasses = ref<
+  {
+    className: string;
+    module: string;
+    isComponent: boolean;
+  }[]
+>([]);
 const catalogLoading = ref(false);
 const loadedExtensions = ref<string[]>([]);
 const extensionObjects = ref<ExtensionInstance[]>([]);
@@ -181,7 +183,7 @@ let workspaceResizeObserver: ResizeObserver | null = null;
 const registerBlockly = () => {
   registerDeviceField();
   registerMechanismField();
-  if (!Blockly.Blocks["sc_opmode_details"]) {
+  if (!Blockly.Blocks['sc_opmode_details']) {
     Blockly.common.defineBlocks(blocks);
   }
 
@@ -215,15 +217,17 @@ watch(showToolbox, (visible) => {
 // --- Tab / opmode plumbing -------------------------------------------------
 
 const TYPE_LABELS: Record<OpModeType, string> = {
-  Teleop: "teleop",
-  Auto: "autonomous",
-  Utility: "utility",
+  Teleop: 'teleop',
+  Auto: 'autonomous',
+  Utility: 'utility',
 };
 
 const activeTab = () => tabs.value.find((tab) => tab.id === activeTabId.value);
 const activeSubsystem = () =>
   activeSubsystemId.value
-    ? getMechanisms().find((mechanism) => mechanism.id === activeSubsystemId.value)
+    ? getMechanisms().find(
+        (mechanism) => mechanism.id === activeSubsystemId.value,
+      )
     : undefined;
 
 const editingSubsystem = computed(() => Boolean(activeSubsystem()));
@@ -242,22 +246,22 @@ const tabViews = computed(() =>
 );
 
 const opmodeColor = (type: OpModeType) =>
-  type === "Auto" ? "warning" : type === "Utility" ? "neutral" : "primary";
+  type === 'Auto' ? 'warning' : type === 'Utility' ? 'neutral' : 'primary';
 
 const activeTabView = computed(
   () => tabViews.value.find((tab) => tab.id === activeTabId.value) ?? null,
 );
 
 const activeEditorTitle = computed(
-  () => activeSubsystem()?.name ?? activeTabView.value?.name ?? "Robot project",
+  () => activeSubsystem()?.name ?? activeTabView.value?.name ?? 'Robot project',
 );
 
 type EditorTabItem = {
   label: string;
   value: string;
-  kind: "opmode" | "subsystem";
+  kind: 'opmode' | 'subsystem';
   typeLabel?: string;
-  color?: "primary" | "warning" | "neutral";
+  color?: 'primary' | 'warning' | 'neutral';
   isDisabled?: boolean;
 };
 
@@ -265,27 +269,27 @@ const editorTabItems = computed<EditorTabItem[]>(() => [
   ...tabViews.value.map((tab) => ({
     label: tab.name,
     value: `opmode:${tab.id}`,
-    kind: "opmode" as const,
+    kind: 'opmode' as const,
     typeLabel: tab.typeLabel,
     color: opmodeColor(tab.type),
     isDisabled: !tab.enabled,
   })),
-  ...(robotMode.value === "advanced"
+  ...(robotMode.value === 'advanced'
     ? mechanisms.value.map((subsystem) => ({
         label: subsystem.name,
         value: `subsystem:${subsystem.id}`,
-        kind: "subsystem" as const,
-        color: "primary" as const,
+        kind: 'subsystem' as const,
+        color: 'primary' as const,
       }))
     : []),
 ]);
 
 const editorTabAccent = (item: EditorTabItem) =>
-  item.color === "warning"
-    ? "bg-amber-500"
-    : item.color === "primary"
-      ? "bg-primary-500"
-      : "bg-slate-400";
+  item.color === 'warning'
+    ? 'bg-amber-500'
+    : item.color === 'primary'
+      ? 'bg-primary-500'
+      : 'bg-slate-400';
 
 const activeEditorTab = computed(() =>
   activeSubsystemId.value
@@ -294,9 +298,9 @@ const activeEditorTab = computed(() =>
 );
 
 const opmodeTypeOptions = [
-  {label: "Teleop · driver controlled", value: "Teleop"},
-  {label: "Autonomous · pre-programmed", value: "Auto"},
-  {label: "Utility · tools and tests", value: "Utility"},
+  {label: 'Teleop · driver controlled', value: 'Teleop'},
+  {label: 'Autonomous · pre-programmed', value: 'Auto'},
+  {label: 'Utility · tools and tests', value: 'Utility'},
 ];
 
 const motorUsage = computed(() => {
@@ -313,8 +317,8 @@ const motorUsage = computed(() => {
 
 const motorUsageLabel = (motorId: string) => {
   const owners = motorUsage.value.get(motorId) ?? [];
-  if (!owners.length) return "Not grouped into a robot part yet";
-  return `Used by ${owners.join(", ")}`;
+  if (!owners.length) return 'Not grouped into a robot part yet';
+  return `Used by ${owners.join(', ')}`;
 };
 
 const extensionCount = computed(() => loadedExtensions.value.length);
@@ -331,7 +335,7 @@ const loadStateIntoWorkspace = (state: WorkspaceState) => {
     workspace.clear();
     Blockly.serialization.workspaces.load(migratedState, workspace, undefined);
   } catch (error) {
-    console.warn("Failed to load opmode into workspace:", error);
+    console.warn('Failed to load opmode into workspace:', error);
     workspace.clear();
   } finally {
     Blockly.Events.enable();
@@ -378,13 +382,17 @@ const persistProject = () => {
   if (restoringProject) return;
   try {
     const saved = activeProjectId.value
-      ? saveStoredProject(activeProjectId.value, projectName.value, projectData())
+      ? saveStoredProject(
+          activeProjectId.value,
+          projectName.value,
+          projectData(),
+        )
       : createStoredProject(projectName.value, projectData());
     activeProjectId.value = saved.id;
     projectName.value = saved.name;
     refreshStoredProjects();
   } catch (error) {
-    console.warn("Failed to save project:", error);
+    console.warn('Failed to save project:', error);
   }
 };
 
@@ -393,13 +401,13 @@ const generateCode = () => {
   try {
     const code = generateAllOpmodes(tabs.value);
     generatedCode.value =
-      code.trim() || "# Add blocks to an OpMode to generate its Python class.";
+      code.trim() || '# Add blocks to an OpMode to generate its Python class.';
     generationStatus.value = code.trim()
-      ? "Python generated"
-      : "Waiting for blocks";
+      ? 'Python generated'
+      : 'Waiting for blocks';
   } catch (error) {
-    generatedCode.value = "Error generating code:\n" + (error as Error).stack;
-    generationStatus.value = "Error";
+    generatedCode.value = 'Error generating code:\n' + (error as Error).stack;
+    generationStatus.value = 'Error';
     console.error(error);
   }
 };
@@ -407,7 +415,7 @@ const generateCode = () => {
 const selectTab = (id: string) => {
   if (id === activeTabId.value && !activeSubsystemId.value) return;
   syncActiveTab();
-  activeSubsystemId.value = "";
+  activeSubsystemId.value = '';
   setDeviceFieldScope(null);
   activeTabId.value = id;
   const tab = activeTab();
@@ -431,25 +439,25 @@ const selectSubsystem = (id: string) => {
 };
 
 const selectEditorTab = (value: string | number) => {
-  const [kind, id] = String(value).split(":", 2);
+  const [kind, id] = String(value).split(':', 2);
   if (!id) return;
-  if (kind === "subsystem") {
+  if (kind === 'subsystem') {
     selectSubsystem(id);
-  } else if (kind === "opmode") {
+  } else if (kind === 'opmode') {
     selectTab(id);
   }
 };
 
 const addOpmode = (type: OpModeType) => {
   syncActiveTab();
-  activeSubsystemId.value = "";
+  activeSubsystemId.value = '';
   setDeviceFieldScope(null);
   const defaultName =
-    type === "Auto"
-      ? "My Autonomous"
-      : type === "Utility"
-        ? "My Utility"
-        : "My Teleop";
+    type === 'Auto'
+      ? 'My Autonomous'
+      : type === 'Utility'
+        ? 'My Utility'
+        : 'My Teleop';
   const tab: OpModeTab = {
     id: newTabId(),
     state: makeOpmodeState(type, defaultName),
@@ -467,14 +475,14 @@ const deleteOpmode = (id: string) => {
   if (index === -1) return;
 
   const wasActive = id === activeTabId.value;
-  if (wasActive) activeSubsystemId.value = "";
+  if (wasActive) activeSubsystemId.value = '';
   tabs.value.splice(index, 1);
 
   if (!tabs.value.length) {
     // Never leave the project empty.
     const tab: OpModeTab = {
       id: newTabId(),
-      state: makeOpmodeState("Teleop", "My Teleop"),
+      state: makeOpmodeState('Teleop', 'My Teleop'),
     };
     tabs.value.push(tab);
     activeTabId.value = tab.id;
@@ -491,16 +499,20 @@ const deleteOpmode = (id: string) => {
 };
 
 const updateActiveOpmodeField = (field: string, value: string) => {
-  const details = workspace?.getBlocksByType("sc_opmode_details", false)[0];
+  const details = workspace?.getBlocksByType('sc_opmode_details', false)[0];
   if (details) {
     details.setFieldValue(value, field);
     return;
   }
   const tab = activeTab();
-  const rootBlocks = (tab?.state as {
-    blocks?: {blocks?: {type?: string; fields?: Record<string, unknown>}[]};
-  }).blocks?.blocks;
-  const serialized = rootBlocks?.find((block) => block.type === "sc_opmode_details");
+  const rootBlocks = (
+    tab?.state as {
+      blocks?: {blocks?: {type?: string; fields?: Record<string, unknown>}[]};
+    }
+  ).blocks?.blocks;
+  const serialized = rootBlocks?.find(
+    (block) => block.type === 'sc_opmode_details',
+  );
   if (!serialized) return;
   serialized.fields = {...serialized.fields, [field]: value};
   persistProject();
@@ -508,18 +520,18 @@ const updateActiveOpmodeField = (field: string, value: string) => {
 };
 
 const updateActiveOpmodeEnabled = (value: unknown) => {
-  updateActiveOpmodeField("ENABLED", value ? "TRUE" : "FALSE");
+  updateActiveOpmodeField('ENABLED', value ? 'TRUE' : 'FALSE');
 };
 
 const updateActiveOpmodeType = (value: unknown) => {
-  const type = value === "Auto" || value === "Utility" ? value : "Teleop";
-  updateActiveOpmodeField("TYPE", type);
+  const type = value === 'Auto' || value === 'Utility' ? value : 'Teleop';
+  updateActiveOpmodeField('TYPE', type);
 };
 
 const freshProjectData = (): ProjectData => {
   const tab: OpModeTab = {
     id: newTabId(),
-    state: makeOpmodeState("Teleop", "My Teleop"),
+    state: makeOpmodeState('Teleop', 'My Teleop'),
   };
   return {
     tabs: [tab],
@@ -527,7 +539,7 @@ const freshProjectData = (): ProjectData => {
     devices: [],
     extensions: [],
     extensionInstances: [],
-    robotMode: "simple",
+    robotMode: 'simple',
     mechanisms: [],
   };
 };
@@ -535,7 +547,7 @@ const freshProjectData = (): ProjectData => {
 const applyProject = (project: StoredProject) => {
   restoringProject = true;
   try {
-    activeSubsystemId.value = "";
+    activeSubsystemId.value = '';
     setDeviceFieldScope(null);
     tabs.value = project.tabs.length
       ? project.tabs.map((tab) => ({
@@ -573,7 +585,7 @@ const loadProject = () => {
 
   const legacy = loadLegacyProject();
   const created = createStoredProject(
-    legacy ? "Recovered robot" : "My Robot",
+    legacy ? 'Recovered robot' : 'My Robot',
     legacy ?? freshProjectData(),
   );
   applyProject(created);
@@ -584,39 +596,39 @@ const loadProject = () => {
 
 const openMotors = () => {
   motors.value = [...getDevices()];
-  setupStep.value = "motors";
+  setupStep.value = 'motors';
   motorsOpen.value = true;
 };
 
 const openSubsystemManager = () => {
   openMotors();
-  if (robotMode.value === "advanced") setupStep.value = "subsystems";
+  if (robotMode.value === 'advanced') setupStep.value = 'subsystems';
 };
 
 const newEditorMenuItems = computed(() => [
   [
     {
-      label: "TeleOp OpMode",
-      description: "Driver-controlled robot code.",
-      onSelect: () => addOpmode("Teleop"),
+      label: 'TeleOp OpMode',
+      description: 'Driver-controlled robot code.',
+      onSelect: () => addOpmode('Teleop'),
     },
     {
-      label: "Autonomous OpMode",
-      description: "Robot code that runs on its own.",
-      onSelect: () => addOpmode("Auto"),
+      label: 'Autonomous OpMode',
+      description: 'Robot code that runs on its own.',
+      onSelect: () => addOpmode('Auto'),
     },
     {
-      label: "Utility OpMode",
-      description: "A focused test or helper routine.",
-      onSelect: () => addOpmode("Utility"),
+      label: 'Utility OpMode',
+      description: 'A focused test or helper routine.',
+      onSelect: () => addOpmode('Utility'),
     },
   ],
-  ...(robotMode.value === "advanced"
+  ...(robotMode.value === 'advanced'
     ? [
         [
           {
-            label: "Robot part (subsystem)",
-            description: "Make a named part with its own blocks.",
+            label: 'Robot part (subsystem)',
+            description: 'Make a named part with its own blocks.',
             onSelect: () => addAndOpenProjectMechanism(),
           },
         ],
@@ -628,13 +640,13 @@ const activeEditorMenuItems = computed(() => [
   [
     editingSubsystem.value
       ? {
-          label: "Manage robot parts",
-          description: "Change this robot part and its motors.",
+          label: 'Manage robot parts',
+          description: 'Change this robot part and its motors.',
           onSelect: openSubsystemManager,
         }
       : {
-          label: "OpMode settings",
-          description: "Rename it or change its driver-station type.",
+          label: 'OpMode settings',
+          description: 'Rename it or change its driver-station type.',
           onSelect: () => {
             opmodeSettingsOpen.value = true;
           },
@@ -644,9 +656,9 @@ const activeEditorMenuItems = computed(() => [
     ? [
         [
           {
-            label: "Delete OpMode",
-            description: "Permanently remove this OpMode and its blocks.",
-            color: "error",
+            label: 'Delete OpMode',
+            description: 'Permanently remove this OpMode and its blocks.',
+            color: 'error',
             onSelect: () => deleteOpmode(activeTabId.value),
           },
         ],
@@ -663,27 +675,29 @@ const removeMotor = (id: string) => {
 };
 
 const numberValue = (value: unknown) => {
-  const parsed = typeof value === "number" ? value : Number(value);
+  const parsed = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
 const onMotorName = (id: string, value: unknown) => {
-  updateDevice(id, { name: String(value ?? "") });
+  updateDevice(id, {name: String(value ?? '')});
 };
 
 const onMotorBus = (id: string, value: unknown) => {
-  updateDevice(id, { bus: numberValue(value) });
+  updateDevice(id, {bus: numberValue(value)});
 };
 
 const onMotorDeviceId = (id: string, value: unknown) => {
-  updateDevice(id, { deviceId: numberValue(value) });
+  updateDevice(id, {deviceId: numberValue(value)});
 };
 
 const addProjectMechanism = () => {
   const mechanism = addMechanism({
-    motorIds: getDevices().slice(0, 1).map((motor) => motor.id),
+    motorIds: getDevices()
+      .slice(0, 1)
+      .map((motor) => motor.id),
   });
-  setupStep.value = "subsystems";
+  setupStep.value = 'subsystems';
   return mechanism;
 };
 
@@ -703,7 +717,7 @@ const removeProjectMechanism = (id: string) => {
 };
 
 const onMechanismName = (id: string, value: unknown) => {
-  updateMechanism(id, {name: String(value ?? "")});
+  updateMechanism(id, {name: String(value ?? '')});
 };
 
 const toggleMechanismMotor = (
@@ -722,7 +736,7 @@ const toggleMechanismMotor = (
 
 const updateRobotMode = (value: unknown) => {
   setRobotMode(value);
-  if (value !== "advanced") setupStep.value = "motors";
+  if (value !== 'advanced') setupStep.value = 'motors';
 };
 
 // --- Named projects --------------------------------------------------------
@@ -750,7 +764,7 @@ const selectStoredProject = (id: string) => {
 const createProject = () => {
   syncActiveTab();
   persistProject();
-  const created = createStoredProject("New robot", freshProjectData());
+  const created = createStoredProject('New robot', freshProjectData());
   applyProject(created);
   const tab = activeTab();
   if (tab) loadStateIntoWorkspace(tab.state);
@@ -760,7 +774,13 @@ const createProject = () => {
 };
 
 const duplicateProject = (project: StoredProject) => {
-  const {id: _id, name, createdAt: _createdAt, updatedAt: _updatedAt, ...data} = project;
+  const {
+    id: _id,
+    name,
+    createdAt: _createdAt,
+    updatedAt: _updatedAt,
+    ...data
+  } = project;
   const created = createStoredProject(`${name} copy`, data);
   refreshStoredProjects();
   selectStoredProject(created.id);
@@ -776,7 +796,7 @@ const deleteProject = (id: string) => {
   if (next) {
     applyProject(next);
   } else {
-    const created = createStoredProject("My Robot", freshProjectData());
+    const created = createStoredProject('My Robot', freshProjectData());
     applyProject(created);
   }
   const tab = activeTab();
@@ -787,7 +807,7 @@ const deleteProject = (id: string) => {
 };
 
 const renameCurrentProject = (value: unknown) => {
-  projectName.value = String(value ?? "");
+  projectName.value = String(value ?? '');
   persistProject();
 };
 
@@ -796,11 +816,13 @@ const downloadCurrentProject = () => {
   persistProject();
   const project = loadStoredProject(activeProjectId.value);
   if (!project) return;
-  const blob = new Blob([exportStoredProject(project)], {type: "application/json"});
+  const blob = new Blob([exportStoredProject(project)], {
+    type: 'application/json',
+  });
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
-  link.download = `${project.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "robot"}.scblocks.json`;
+  link.download = `${project.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'robot'}.scblocks.json`;
   link.click();
   URL.revokeObjectURL(url);
 };
@@ -809,7 +831,9 @@ const importProjectFile = async (file: File) => {
   const backup = parseProjectBackup(await file.text());
   projectImportFile.value = null;
   if (!backup) {
-    console.warn("The selected file is not a SystemCore Blocks project backup.");
+    console.warn(
+      'The selected file is not a SystemCore Blocks project backup.',
+    );
     return;
   }
   const imported = importStoredProject(backup);
@@ -840,7 +864,7 @@ const openExtensionPicker = async () => {
 
 const closePicker = () => {
   pickerOpen.value = false;
-  pickerQuery.value = "";
+  pickerQuery.value = '';
 };
 
 const filteredClasses = computed(() => {
@@ -882,11 +906,11 @@ const removeExtensionObject = (id: string) => {
 };
 
 const updateExtensionObjectName = (id: string, value: unknown) => {
-  updateExtensionInstance(id, {name: String(value ?? "")});
+  updateExtensionInstance(id, {name: String(value ?? '')});
 };
 
 const updateExtensionObjectArgs = (id: string, value: unknown) => {
-  updateExtensionInstance(id, {args: String(value ?? "")});
+  updateExtensionInstance(id, {args: String(value ?? '')});
 };
 
 const shortName = (className: string) => simpleName(className);
@@ -895,7 +919,10 @@ const shortName = (className: string) => simpleName(className);
 // newly applied categories.
 type ContinuousToolboxLike = {
   getInitialFlyoutContents?: () => unknown;
-  getFlyout?: () => { show: (items: unknown) => void; isVisible: () => boolean } | null;
+  getFlyout?: () => {
+    show: (items: unknown) => void;
+    isVisible: () => boolean;
+  } | null;
 };
 
 const refreshContinuousFlyout = (ws: Blockly.WorkspaceSvg) => {
@@ -914,11 +941,12 @@ let toolboxStateKey: string | null = null;
 const syncToolboxForActive = () => {
   if (!workspace) return;
   const tab = activeTab();
-  const editor = editingSubsystem.value ? "subsystem" : "opmode";
+  const editor = editingSubsystem.value ? 'subsystem' : 'opmode';
   setDeviceFieldScope(activeSubsystem()?.motorIds ?? null);
-  const includeGamepad = editor === "opmode" && tab
-    ? opmodeInfoFromState(tab.state).type === "Teleop"
-    : false;
+  const includeGamepad =
+    editor === 'opmode' && tab
+      ? opmodeInfoFromState(tab.state).type === 'Teleop'
+      : false;
   const includeWpilibSensors = isExtensionLoaded(WPILIB_SENSORS_EXTENSION_ID);
   const includeWpilibOutputs = isExtensionLoaded(WPILIB_OUTPUTS_EXTENSION_ID);
   const includeRevSensors = isExtensionLoaded(REV_SENSORS_EXTENSION_ID);
@@ -953,7 +981,7 @@ onMounted(() => {
   // Extensions categories — so their callbacks must be registered *before* the
   // real toolbox is applied. We register them, then swap in the full toolbox.
   workspace = Blockly.inject(blocklyDiv.value, {
-    toolbox: { kind: "categoryToolbox", contents: [] },
+    toolbox: {kind: 'categoryToolbox', contents: []},
     renderer: systemCoreRendererName,
     theme: systemCoreTheme,
     trashcan: true,
@@ -966,9 +994,9 @@ onMounted(() => {
       scaleSpeed: 1.1,
     },
     plugins: {
-      flyoutsVerticalToolbox: "ContinuousFlyout",
-      metricsManager: "ContinuousMetrics",
-      toolbox: "ContinuousToolbox",
+      flyoutsVerticalToolbox: 'ContinuousFlyout',
+      metricsManager: 'ContinuousMetrics',
+      toolbox: 'ContinuousToolbox',
     },
   });
 
@@ -1000,7 +1028,7 @@ onMounted(() => {
     if (restoringProject) return;
     if (syncingSubsystemWorkspace) return;
     if (activeSubsystemId.value && !activeSubsystem()) {
-      activeSubsystemId.value = "";
+      activeSubsystemId.value = '';
       const tab = activeTab();
       if (tab) loadStateIntoWorkspace(tab.state);
       syncToolboxForActive();
@@ -1030,8 +1058,8 @@ onMounted(() => {
   // scale, applied in reflowInternal_); pin it so flyout blocks stay constant.
   const flyout = workspace.getFlyout();
   if (flyout) {
-    (flyout as unknown as { getFlyoutScale: () => number }).getFlyoutScale =
-      () => 0.67;
+    (flyout as unknown as {getFlyoutScale: () => number}).getFlyoutScale = () =>
+      0.67;
   }
 
   // Now that every dynamic-category callback is registered, apply the real
@@ -1065,12 +1093,12 @@ onMounted(() => {
   workspaceResizeObserver = new ResizeObserver(scheduleWorkspaceResize);
   workspaceResizeObserver.observe(blocklyDiv.value);
 
-  window.addEventListener("resize", scheduleWorkspaceResize);
+  window.addEventListener('resize', scheduleWorkspaceResize);
   scheduleWorkspaceResize();
 });
 
 onBeforeUnmount(() => {
-  window.removeEventListener("resize", scheduleWorkspaceResize);
+  window.removeEventListener('resize', scheduleWorkspaceResize);
   workspaceResizeObserver?.disconnect();
   workspaceResizeObserver = null;
   if (workspaceResizeFrame !== null) {
@@ -1086,7 +1114,7 @@ onBeforeUnmount(() => {
   <UApp>
     <main
       class="flex h-screen min-w-[320px] flex-col overflow-hidden bg-slate-100 text-slate-950"
-      :class="{ 'hide-code-panel': !showGeneratedCode }"
+      :class="{'hide-code-panel': !showGeneratedCode}"
     >
       <header
         class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 shadow-sm"
@@ -1111,7 +1139,9 @@ onBeforeUnmount(() => {
               size="sm"
               color="neutral"
               variant="ghost"
-              :icon="showToolbox ? 'i-heroicons-swatch-solid' : 'i-heroicons-swatch'"
+              :icon="
+                showToolbox ? 'i-heroicons-swatch-solid' : 'i-heroicons-swatch'
+              "
               @click="showToolbox = !showToolbox"
             />
           </UTooltip>
@@ -1120,7 +1150,11 @@ onBeforeUnmount(() => {
               size="sm"
               color="neutral"
               variant="ghost"
-              :icon="showGeneratedCode ? 'i-heroicons-code-bracket-square-solid' : 'i-heroicons-code-bracket-square'"
+              :icon="
+                showGeneratedCode
+                  ? 'i-heroicons-code-bracket-square-solid'
+                  : 'i-heroicons-code-bracket-square'
+              "
               @click="showGeneratedCode = !showGeneratedCode"
             />
           </UTooltip>
@@ -1133,12 +1167,7 @@ onBeforeUnmount(() => {
           >
             OpMode
           </UButton>
-          <UButton
-            size="sm"
-            @click="openMotors"
-          >
-            Robot Setup
-          </UButton>
+          <UButton size="sm" @click="openMotors"> Robot Setup </UButton>
           <UButton
             size="sm"
             color="neutral"
@@ -1147,10 +1176,7 @@ onBeforeUnmount(() => {
           >
             Projects
           </UButton>
-          <UButton
-            size="sm"
-            @click="openExtensionPicker"
-          >
+          <UButton size="sm" @click="openExtensionPicker">
             Libraries
             <span v-if="extensionCount">({{ extensionCount }})</span>
           </UButton>
@@ -1168,84 +1194,111 @@ onBeforeUnmount(() => {
           :max-size="100"
           class="h-full min-h-0"
         >
-        <section
-          class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] bg-slate-100 p-3"
-          aria-label="Block workspace"
-        >
-          <div
-            class="flex min-w-0 items-center gap-1.5 rounded-t-xl border border-slate-200/90  bg-white/95 p-1.5 shadow-sm"
+          <section
+            class="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] bg-slate-100 p-3"
+            aria-label="Block workspace"
           >
-            <div class="min-w-0 flex-1 overflow-x-auto scrollbar-thin scrollbar-track-transparent">
-              <UTabs
-                :model-value="activeEditorTab"
-                :items="editorTabItems"
-                :content="false"
-                size="sm"
-                class="min-w-max"
-                :ui="{
-                  list: 'min-w-max gap-1 rounded-lg bg-slate-100/90 p-1',
-                  indicator: 'hidden',
-                  trigger: 'h-9 max-w-56 rounded-md px-2.5 text-xs font-semibold text-slate-600 transition data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-slate-200/70',
-                }"
-                @update:model-value="selectEditorTab"
+            <div
+              class="flex min-w-0 items-center gap-1.5 rounded-t-xl border border-slate-200/90 bg-white/95 p-1.5 shadow-sm"
+            >
+              <div
+                class="min-w-0 flex-1 overflow-x-auto scrollbar-thin scrollbar-track-transparent"
               >
-                <template #default="{ item }">
-                  <span
-                    class="flex min-w-0 items-center gap-2"
-                    :class="{ 'opacity-45': item.isDisabled }"
-                  >
-                    <span
-                      class="size-1.5 shrink-0 rounded-full"
-                      :class="editorTabAccent(item)"
-                      aria-hidden="true"
-                    />
-                    <span
-                      class="min-w-0 truncate"
-                      :class="{ 'line-through': item.isDisabled }"
-                    >
-                      {{ item.label }}
-                    </span>
-                    <span class="hidden shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:inline">
-                      {{ item.kind === 'subsystem' ? 'mechanism' : item.typeLabel }}
-                    </span>
-                  </span>
-                </template>
-              </UTabs>
-            </div>
-
-            <div class="flex shrink-0 items-center gap-1 border-l border-slate-200 pl-1.5">
-              <UDropdownMenu :items="newEditorMenuItems" :content="{ align: 'end' }">
-                <UButton size="xs" color="primary" variant="solid">
-                  New
-                  <span class="ml-0.5 text-[10px] opacity-75" aria-hidden="true">⌄</span>
-                </UButton>
-              </UDropdownMenu>
-              <UDropdownMenu :items="activeEditorMenuItems" :content="{ align: 'end' }">
-                <UButton
-                  size="xs"
-                  color="neutral"
-                  variant="ghost"
-                  aria-label="Current tab actions"
+                <UTabs
+                  :model-value="activeEditorTab"
+                  :items="editorTabItems"
+                  :content="false"
+                  size="sm"
+                  class="min-w-max"
+                  :ui="{
+                    list: 'min-w-max gap-1 rounded-lg bg-slate-100/90 p-1',
+                    indicator: 'hidden',
+                    trigger:
+                      'h-9 max-w-56 rounded-md px-2.5 text-xs font-semibold text-slate-600 transition data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-sm data-[state=inactive]:hover:bg-slate-200/70',
+                  }"
+                  @update:model-value="selectEditorTab"
                 >
-                  <span class="text-base leading-none" aria-hidden="true">⋯</span>
-                </UButton>
-              </UDropdownMenu>
-            </div>
-          </div>
+                  <template #default="{item}">
+                    <span
+                      class="flex min-w-0 items-center gap-2"
+                      :class="{'opacity-45': item.isDisabled}"
+                    >
+                      <span
+                        class="size-1.5 shrink-0 rounded-full"
+                        :class="editorTabAccent(item)"
+                        aria-hidden="true"
+                      />
+                      <span
+                        class="min-w-0 truncate"
+                        :class="{'line-through': item.isDisabled}"
+                      >
+                        {{ item.label }}
+                      </span>
+                      <span
+                        class="hidden shrink-0 text-[10px] font-medium uppercase tracking-wide text-slate-400 sm:inline"
+                      >
+                        {{
+                          item.kind === 'subsystem'
+                            ? 'mechanism'
+                            : item.typeLabel
+                        }}
+                      </span>
+                    </span>
+                  </template>
+                </UTabs>
+              </div>
 
-          <div
-            class="min-h-0 overflow-hidden rounded-b-xl border border-slate-200 border-t-0 bg-white shadow-sm"
-          >
-            <div id="blocklyDiv" ref="blocklyDiv" class="h-full w-full"></div>
-          </div>
-        </section>
+              <div
+                class="flex shrink-0 items-center gap-1 border-l border-slate-200 pl-1.5"
+              >
+                <UDropdownMenu
+                  :items="newEditorMenuItems"
+                  :content="{align: 'end'}"
+                >
+                  <UButton size="xs" color="primary" variant="solid">
+                    New
+                    <span
+                      class="ml-0.5 text-[10px] opacity-75"
+                      aria-hidden="true"
+                      >⌄</span
+                    >
+                  </UButton>
+                </UDropdownMenu>
+                <UDropdownMenu
+                  :items="activeEditorMenuItems"
+                  :content="{align: 'end'}"
+                >
+                  <UButton
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    aria-label="Current tab actions"
+                  >
+                    <span class="text-base leading-none" aria-hidden="true"
+                      >⋯</span
+                    >
+                  </UButton>
+                </UDropdownMenu>
+              </div>
+            </div>
+
+            <div
+              class="min-h-0 overflow-hidden rounded-b-xl border border-slate-200 border-t-0 bg-white shadow-sm"
+            >
+              <div id="blocklyDiv" ref="blocklyDiv" class="h-full w-full"></div>
+            </div>
+          </section>
         </UDashboardPanel>
 
-        <UDashboardPanel v-if="showGeneratedCode" id="code" class="h-full min-h-0">
-        <aside
-          class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white"
-          aria-label="Generated code and status"
+        <UDashboardPanel
+          v-if="showGeneratedCode"
+          id="code"
+          class="h-full min-h-0"
         >
+          <aside
+            class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white"
+            aria-label="Generated code and status"
+          >
             <div
               v-if="highlightedCode"
               id="generatedCode"
@@ -1255,9 +1308,9 @@ onBeforeUnmount(() => {
             <pre
               v-else
               id="generatedCode"
-              class="h-full min-h-0 overflow-auto  p-3 text-[0.8rem] leading-6 text-slate-100"
+              class="h-full min-h-0 overflow-auto p-3 text-[0.8rem] leading-6 text-slate-100"
             ><code>{{ generatedCode }}</code></pre>
-        </aside>
+          </aside>
         </UDashboardPanel>
       </UDashboardGroup>
     </main>
@@ -1267,7 +1320,7 @@ onBeforeUnmount(() => {
       title="OpMode settings"
       description="Each tab generates one RobotPy class. Choose how this OpMode appears to the driver station."
       :close="false"
-      :ui="{ content: 'w-[calc(100vw-2rem)] max-w-lg' }"
+      :ui="{content: 'w-[calc(100vw-2rem)] max-w-lg'}"
     >
       <template #body>
         <div class="grid gap-4">
@@ -1276,7 +1329,9 @@ onBeforeUnmount(() => {
             <UInput
               :model-value="activeTabView?.name ?? ''"
               placeholder="My Teleop"
-              @update:model-value="updateActiveOpmodeField('NAME', String($event ?? ''))"
+              @update:model-value="
+                updateActiveOpmodeField('NAME', String($event ?? ''))
+              "
             />
           </label>
           <label class="grid gap-1.5 text-sm font-bold text-slate-700">
@@ -1294,12 +1349,15 @@ onBeforeUnmount(() => {
             class="rounded-lg border border-slate-200 bg-slate-50 p-3"
             @update:model-value="updateActiveOpmodeEnabled"
           />
-          <p class="rounded-lg bg-primary-50 px-3 py-2 text-xs font-semibold leading-5 text-primary-800">
-            Separate “when this OpMode starts” stacks run in parallel. Triggers stay active for the whole OpMode.
+          <p
+            class="rounded-lg bg-primary-50 px-3 py-2 text-xs font-semibold leading-5 text-primary-800"
+          >
+            Separate “when this OpMode starts” stacks run in parallel. Triggers
+            stay active for the whole OpMode.
           </p>
         </div>
       </template>
-      <template #footer="{ close }">
+      <template #footer="{close}">
         <UButton color="neutral" variant="ghost" @click="close">Done</UButton>
       </template>
     </UModal>
@@ -1319,39 +1377,68 @@ onBeforeUnmount(() => {
       }"
     >
       <template #body>
-        <div class="flex max-h-[min(62vh,560px)] min-h-0 flex-col gap-5 overflow-y-auto pr-1">
+        <div
+          class="flex max-h-[min(62vh,560px)] min-h-0 flex-col gap-5 overflow-y-auto pr-1"
+        >
           <section aria-labelledby="programming-style-heading">
             <div class="mb-2">
-              <h2 id="programming-style-heading" class="text-sm font-black text-slate-900">
+              <h2
+                id="programming-style-heading"
+                class="text-sm font-black text-slate-900"
+              >
                 First, choose a programming style
               </h2>
               <p class="mt-0.5 text-xs font-semibold leading-5 text-slate-500">
-                You can change this later. Start simple unless your team is ready to give each robot part its own blocks.
+                You can change this later. Start simple unless your team is
+                ready to give each robot part its own blocks.
               </p>
             </div>
-            <div role="group" aria-label="Programming style" class="grid gap-2 sm:grid-cols-2">
+            <div
+              role="group"
+              aria-label="Programming style"
+              class="grid gap-2 sm:grid-cols-2"
+            >
               <button
                 type="button"
                 :aria-pressed="robotMode === 'simple'"
                 class="rounded-xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                :class="robotMode === 'simple' ? 'border-primary-500 bg-primary-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
+                :class="
+                  robotMode === 'simple'
+                    ? 'border-primary-500 bg-primary-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                "
                 @click="updateRobotMode('simple')"
               >
-                <span class="block text-sm font-black text-slate-900">Flat</span>
-                <span class="mt-1 block text-xs font-semibold leading-5 text-slate-600">
-                  Put motor blocks right into an OpMode. Great for learning and small robots.
+                <span class="block text-sm font-black text-slate-900"
+                  >Flat</span
+                >
+                <span
+                  class="mt-1 block text-xs font-semibold leading-5 text-slate-600"
+                >
+                  Put motor blocks right into an OpMode. Great for learning and
+                  small robots.
                 </span>
               </button>
               <button
                 type="button"
                 :aria-pressed="robotMode === 'advanced'"
                 class="rounded-xl border-2 p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-                :class="robotMode === 'advanced' ? 'border-primary-500 bg-primary-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
+                :class="
+                  robotMode === 'advanced'
+                    ? 'border-primary-500 bg-primary-50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                "
                 @click="updateRobotMode('advanced')"
               >
-                <span class="block text-sm font-black text-slate-900">Structured</span>
-                <span class="mt-1 block text-xs font-semibold leading-5 text-slate-600">
-                  Separate robot mechanisms into their own structured spaces. More flexible, but more complex. Great for more complicated robots.
+                <span class="block text-sm font-black text-slate-900"
+                  >Structured</span
+                >
+                <span
+                  class="mt-1 block text-xs font-semibold leading-5 text-slate-600"
+                >
+                  Separate robot mechanisms into their own structured spaces.
+                  More flexible, but more complex. Great for more complicated
+                  robots.
                 </span>
               </button>
             </div>
@@ -1365,41 +1452,82 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="rounded-lg px-3 py-2 text-left text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-              :class="setupStep === 'motors' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200/70'"
+              :class="
+                setupStep === 'motors'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-slate-500 hover:bg-slate-200/70'
+              "
               @click="setupStep = 'motors'"
             >
-              <span class="mr-1.5 inline-grid size-5 place-items-center rounded-full bg-primary-100 text-[0.7rem] text-primary-700">1</span>
+              <span
+                class="mr-1.5 inline-grid size-5 place-items-center rounded-full bg-primary-100 text-[0.7rem] text-primary-700"
+                >1</span
+              >
               Name motors
             </button>
             <button
               type="button"
               class="rounded-lg px-3 py-2 text-left text-xs font-black transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-              :class="setupStep === 'subsystems' ? 'bg-white text-primary-700 shadow-sm' : 'text-slate-500 hover:bg-slate-200/70'"
+              :class="
+                setupStep === 'subsystems'
+                  ? 'bg-white text-primary-700 shadow-sm'
+                  : 'text-slate-500 hover:bg-slate-200/70'
+              "
               @click="setupStep = 'subsystems'"
             >
-              <span class="mr-1.5 inline-grid size-5 place-items-center rounded-full bg-primary-100 text-[0.7rem] text-primary-700">2</span>
+              <span
+                class="mr-1.5 inline-grid size-5 place-items-center rounded-full bg-primary-100 text-[0.7rem] text-primary-700"
+                >2</span
+              >
               Make robot mechanisms
             </button>
           </nav>
 
-          <section v-if="setupStep === 'motors' || robotMode === 'simple'" aria-labelledby="motors-heading">
+          <section
+            v-if="setupStep === 'motors' || robotMode === 'simple'"
+            aria-labelledby="motors-heading"
+          >
             <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-black uppercase tracking-wide text-primary-700">Step 1</p>
-                <h2 id="motors-heading" class="text-base font-black text-slate-900">Name your motors</h2>
-                <p class="mt-0.5 max-w-xl text-xs font-semibold leading-5 text-slate-500">
-                  Use names from your robot, like “Left Drive” or “Intake.” Those names show up on your blocks.
+                <p
+                  class="text-xs font-black uppercase tracking-wide text-primary-700"
+                >
+                  Step 1
+                </p>
+                <h2
+                  id="motors-heading"
+                  class="text-base font-black text-slate-900"
+                >
+                  Name your motors
+                </h2>
+                <p
+                  class="mt-0.5 max-w-xl text-xs font-semibold leading-5 text-slate-500"
+                >
+                  Use names from your robot, like “Left Drive” or “Intake.”
+                  Those names show up on your blocks.
                 </p>
               </div>
-              <UButton size="sm" color="primary" @click="addMotor">+ Add motor</UButton>
+              <UButton size="sm" color="primary" @click="addMotor"
+                >+ Add motor</UButton
+              >
             </div>
 
-            <div v-if="!motors.length" class="rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/60 p-5 text-center">
-              <p class="text-sm font-black text-slate-900">Add your first motor</p>
-              <p class="mx-auto mt-1 max-w-sm text-xs font-semibold leading-5 text-slate-600">
-                Start with one motor your team can recognize. You can add the rest whenever you are ready.
+            <div
+              v-if="!motors.length"
+              class="rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/60 p-5 text-center"
+            >
+              <p class="text-sm font-black text-slate-900">
+                Add your first motor
               </p>
-              <UButton class="mt-3" size="sm" color="primary" @click="addMotor">Add a motor</UButton>
+              <p
+                class="mx-auto mt-1 max-w-sm text-xs font-semibold leading-5 text-slate-600"
+              >
+                Start with one motor your team can recognize. You can add the
+                rest whenever you are ready.
+              </p>
+              <UButton class="mt-3" size="sm" color="primary" @click="addMotor"
+                >Add a motor</UButton
+              >
             </div>
 
             <ul v-else class="grid gap-2">
@@ -1408,7 +1536,9 @@ onBeforeUnmount(() => {
                 :key="motor.id"
                 class="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_120px_120px_auto] sm:items-end"
               >
-                <label class="grid min-w-0 gap-1.5 text-xs font-black text-slate-700">
+                <label
+                  class="grid min-w-0 gap-1.5 text-xs font-black text-slate-700"
+                >
                   Motor name
                   <UInput
                     size="sm"
@@ -1416,7 +1546,9 @@ onBeforeUnmount(() => {
                     placeholder="e.g. Intake"
                     @update:model-value="onMotorName(motor.id, $event)"
                   />
-                  <span class="font-semibold text-slate-400">{{ motorUsageLabel(motor.id) }}</span>
+                  <span class="font-semibold text-slate-400">{{
+                    motorUsageLabel(motor.id)
+                  }}</span>
                 </label>
                 <label class="grid gap-1.5 text-xs font-black text-slate-700">
                   CAN bus
@@ -1425,7 +1557,7 @@ onBeforeUnmount(() => {
                     :model-value="motor.bus"
                     :increment="false"
                     :decrement="false"
-                    :ui="{ base: 'text-center' }"
+                    :ui="{base: 'text-center'}"
                     @update:model-value="onMotorBus(motor.id, $event)"
                   />
                 </label>
@@ -1436,7 +1568,7 @@ onBeforeUnmount(() => {
                     :model-value="motor.deviceId"
                     :increment="false"
                     :decrement="false"
-                    :ui="{ base: 'text-center' }"
+                    :ui="{base: 'text-center'}"
                     @update:model-value="onMotorDeviceId(motor.id, $event)"
                   />
                 </label>
@@ -1453,11 +1585,19 @@ onBeforeUnmount(() => {
               </li>
             </ul>
 
-            <div v-if="robotMode === 'advanced'" class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-primary-100 bg-primary-50 p-3">
+            <div
+              v-if="robotMode === 'advanced'"
+              class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-primary-100 bg-primary-50 p-3"
+            >
               <p class="text-xs font-semibold leading-5 text-primary-900">
                 Next, group motors that work together into robot parts.
               </p>
-              <UButton size="sm" color="primary" variant="soft" @click="setupStep = 'subsystems'">
+              <UButton
+                size="sm"
+                color="primary"
+                variant="soft"
+                @click="setupStep = 'subsystems'"
+              >
                 Next: robot parts
               </UButton>
             </div>
@@ -1466,31 +1606,71 @@ onBeforeUnmount(() => {
           <section v-else aria-labelledby="robot-parts-heading">
             <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-black uppercase tracking-wide text-primary-700">Step 2</p>
-                <h2 id="robot-parts-heading" class="text-base font-black text-slate-900">Make robot parts</h2>
-                <p class="mt-0.5 max-w-xl text-xs font-semibold leading-5 text-slate-500">
-                  A robot part (also called a subsystem) owns the motors, sensors, and RobotPy objects that work together, like an intake, arm, or launcher. It gets its own Blocks tab.
+                <p
+                  class="text-xs font-black uppercase tracking-wide text-primary-700"
+                >
+                  Step 2
+                </p>
+                <h2
+                  id="robot-parts-heading"
+                  class="text-base font-black text-slate-900"
+                >
+                  Make robot parts
+                </h2>
+                <p
+                  class="mt-0.5 max-w-xl text-xs font-semibold leading-5 text-slate-500"
+                >
+                  A robot part (also called a subsystem) owns the motors,
+                  sensors, and RobotPy objects that work together, like an
+                  intake, arm, or launcher. It gets its own Blocks tab.
                 </p>
               </div>
-              <UButton size="sm" color="primary" @click="addProjectMechanism">+ Add robot part</UButton>
+              <UButton size="sm" color="primary" @click="addProjectMechanism"
+                >+ Add robot part</UButton
+              >
             </div>
 
-            <div v-if="!motors.length" class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p class="text-sm font-black text-amber-950">Start by adding a motor</p>
+            <div
+              v-if="!motors.length"
+              class="rounded-xl border border-amber-200 bg-amber-50 p-4"
+            >
+              <p class="text-sm font-black text-amber-950">
+                Start by adding a motor
+              </p>
               <p class="mt-1 text-xs font-semibold leading-5 text-amber-900">
                 Robot parts are made from the motors you named in Step 1.
               </p>
-              <UButton class="mt-3" size="sm" color="warning" variant="soft" @click="setupStep = 'motors'">
+              <UButton
+                class="mt-3"
+                size="sm"
+                color="warning"
+                variant="soft"
+                @click="setupStep = 'motors'"
+              >
                 Go to motors
               </UButton>
             </div>
 
-            <div v-else-if="!mechanisms.length" class="rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/60 p-5 text-center">
-              <p class="text-sm font-black text-slate-900">Make your first robot part</p>
-              <p class="mx-auto mt-1 max-w-md text-xs font-semibold leading-5 text-slate-600">
-                For example, make an Intake part, check its motor, then use the Sensing and Extensions drawers to build its command logic.
+            <div
+              v-else-if="!mechanisms.length"
+              class="rounded-xl border-2 border-dashed border-primary-200 bg-primary-50/60 p-5 text-center"
+            >
+              <p class="text-sm font-black text-slate-900">
+                Make your first robot part
               </p>
-              <UButton class="mt-3" size="sm" color="primary" @click="addProjectMechanism">Make a robot part</UButton>
+              <p
+                class="mx-auto mt-1 max-w-md text-xs font-semibold leading-5 text-slate-600"
+              >
+                For example, make an Intake part, check its motor, then use the
+                Sensing and Extensions drawers to build its command logic.
+              </p>
+              <UButton
+                class="mt-3"
+                size="sm"
+                color="primary"
+                @click="addProjectMechanism"
+                >Make a robot part</UButton
+              >
             </div>
 
             <ul v-else class="grid gap-3">
@@ -1500,17 +1680,26 @@ onBeforeUnmount(() => {
                 class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
               >
                 <div class="flex flex-wrap items-start justify-between gap-3">
-                  <label class="grid min-w-0 flex-1 gap-1.5 text-xs font-black text-slate-700">
+                  <label
+                    class="grid min-w-0 flex-1 gap-1.5 text-xs font-black text-slate-700"
+                  >
                     Robot part name
                     <UInput
                       size="sm"
                       :model-value="mechanism.name"
                       placeholder="e.g. Intake"
-                      @update:model-value="onMechanismName(mechanism.id, $event)"
+                      @update:model-value="
+                        onMechanismName(mechanism.id, $event)
+                      "
                     />
                   </label>
                   <div class="flex shrink-0 gap-1">
-                    <UButton size="sm" color="primary" variant="soft" @click="openSubsystemWorkspace(mechanism.id)">
+                    <UButton
+                      size="sm"
+                      color="primary"
+                      variant="soft"
+                      @click="openSubsystemWorkspace(mechanism.id)"
+                    >
                       Open Blocks
                     </UButton>
                     <UButton
@@ -1526,9 +1715,15 @@ onBeforeUnmount(() => {
                 </div>
 
                 <fieldset class="mt-3">
-                  <legend class="text-xs font-black text-slate-700">Which motors move this part?</legend>
-                  <p class="mt-0.5 text-xs font-semibold leading-5 text-slate-500">
-                    Check every motor that belongs here. Sensors and named RobotPy objects used in this part are wired automatically from its Blocks workspace.
+                  <legend class="text-xs font-black text-slate-700">
+                    Which motors move this part?
+                  </legend>
+                  <p
+                    class="mt-0.5 text-xs font-semibold leading-5 text-slate-500"
+                  >
+                    Check every motor that belongs here. Sensors and named
+                    RobotPy objects used in this part are wired automatically
+                    from its Blocks workspace.
                   </p>
                   <div class="mt-2 grid gap-2 sm:grid-cols-2">
                     <UCheckbox
@@ -1538,8 +1733,14 @@ onBeforeUnmount(() => {
                       :label="motor.name"
                       :description="`CAN ${motor.deviceId} · bus ${motor.bus}`"
                       class="min-w-0 rounded-lg border p-2 text-left transition"
-                      :class="mechanism.motorIds.includes(motor.id) ? 'border-primary-300 bg-primary-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'"
-                      @update:model-value="toggleMechanismMotor(mechanism, motor.id, $event)"
+                      :class="
+                        mechanism.motorIds.includes(motor.id)
+                          ? 'border-primary-300 bg-primary-50'
+                          : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                      "
+                      @update:model-value="
+                        toggleMechanismMotor(mechanism, motor.id, $event)
+                      "
                     />
                   </div>
                 </fieldset>
@@ -1549,7 +1750,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template #footer="{ close }">
+      <template #footer="{close}">
         <UButton
           v-if="robotMode === 'advanced' && setupStep === 'subsystems'"
           color="neutral"
@@ -1595,15 +1796,28 @@ onBeforeUnmount(() => {
               v-for="project in storedProjects"
               :key="project.id"
               class="flex items-center gap-3 rounded-lg border p-2.5"
-              :class="project.id === activeProjectId ? 'border-primary-300 bg-primary-50' : 'border-slate-200 bg-white'"
+              :class="
+                project.id === activeProjectId
+                  ? 'border-primary-300 bg-primary-50'
+                  : 'border-slate-200 bg-white'
+              "
             >
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-black text-slate-900">{{ project.name }}</p>
+                <p class="truncate text-sm font-black text-slate-900">
+                  {{ project.name }}
+                </p>
                 <p class="text-xs font-semibold text-slate-400">
-                  {{ project.tabs.length }} {{ project.tabs.length === 1 ? "OpMode" : "OpModes" }} · saved {{ new Date(project.updatedAt).toLocaleString() }}
+                  {{ project.tabs.length }}
+                  {{ project.tabs.length === 1 ? 'OpMode' : 'OpModes' }} · saved
+                  {{ new Date(project.updatedAt).toLocaleString() }}
                 </p>
               </div>
-              <UBadge v-if="project.id === activeProjectId" color="primary" variant="soft" size="xs">
+              <UBadge
+                v-if="project.id === activeProjectId"
+                color="primary"
+                variant="soft"
+                size="xs"
+              >
                 Open
               </UBadge>
               <UButton
@@ -1615,10 +1829,20 @@ onBeforeUnmount(() => {
               >
                 Open
               </UButton>
-              <UButton size="xs" color="neutral" variant="ghost" @click="duplicateProject(project)">
+              <UButton
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                @click="duplicateProject(project)"
+              >
                 Copy
               </UButton>
-              <UButton size="xs" color="error" variant="ghost" @click="deleteProject(project.id)">
+              <UButton
+                size="xs"
+                color="error"
+                variant="ghost"
+                @click="deleteProject(project.id)"
+              >
                 Delete
               </UButton>
             </li>
@@ -1626,10 +1850,16 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template #footer="{ close }">
+      <template #footer="{close}">
         <div class="flex flex-wrap gap-2">
-          <UButton color="primary" @click="createProject">+ New project</UButton>
-          <UButton color="neutral" variant="soft" @click="downloadCurrentProject">
+          <UButton color="primary" @click="createProject"
+            >+ New project</UButton
+          >
+          <UButton
+            color="neutral"
+            variant="soft"
+            @click="downloadCurrentProject"
+          >
             Download backup
           </UButton>
           <UFileUpload
@@ -1659,7 +1889,9 @@ onBeforeUnmount(() => {
       @after:leave="pickerQuery = ''"
     >
       <template #body>
-        <div class="flex max-h-[min(58vh,520px)] min-h-0 flex-col gap-3 overflow-auto">
+        <div
+          class="flex max-h-[min(58vh,520px)] min-h-0 flex-col gap-3 overflow-auto"
+        >
           <USeparator label="Recommended block libraries" />
 
           <ul class="grid gap-2 sm:grid-cols-2">
@@ -1667,7 +1899,7 @@ onBeforeUnmount(() => {
               v-for="extension in handWrappedExtensions"
               :key="extension.id"
               class="flex min-h-32 flex-col justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
-              :style="{ '--extension-color': extension.color }"
+              :style="{'--extension-color': extension.color}"
             >
               <div class="flex min-w-0 items-start gap-3">
                 <span
@@ -1680,7 +1912,9 @@ onBeforeUnmount(() => {
                   <h3 class="truncate text-sm font-black text-slate-900">
                     {{ extension.name }}
                   </h3>
-                  <p class="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                  <p
+                    class="mt-1 text-xs font-semibold leading-5 text-slate-500"
+                  >
                     {{ extension.summary }}
                   </p>
                 </div>
@@ -1703,14 +1937,19 @@ onBeforeUnmount(() => {
                   :variant="isExtensionLoaded(extension.id) ? 'soft' : 'solid'"
                   @click="toggleExtension(extension.id)"
                 >
-                  {{ isExtensionLoaded(extension.id) ? "Remove" : "Add" }}
+                  {{ isExtensionLoaded(extension.id) ? 'Remove' : 'Add' }}
                 </UButton>
               </div>
             </li>
           </ul>
 
-          <div class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold leading-5 text-blue-900">
-            Advanced classes are an escape hatch for RobotPy APIs without a dedicated block library. Add a named object, then choose that object from the block instead of typing a fragile <code>self...</code> target.
+          <div
+            class="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-semibold leading-5 text-blue-900"
+          >
+            Advanced classes are an escape hatch for RobotPy APIs without a
+            dedicated block library. Add a named object, then choose that object
+            from the block instead of typing a fragile
+            <code>self...</code> target.
           </div>
 
           <template v-if="extensionObjects.length">
@@ -1725,25 +1964,42 @@ onBeforeUnmount(() => {
                   class="w-full sm:w-1/3 shrink-0"
                   :model-value="object.name"
                   placeholder="object name"
-                  @update:model-value="updateExtensionObjectName(object.id, $event)"
+                  @update:model-value="
+                    updateExtensionObjectName(object.id, $event)
+                  "
                 />
                 <div class="flex min-w-0 flex-1 items-center gap-2">
-                  <span class="shrink-0 truncate font-mono text-xs font-semibold text-slate-500" :title="object.className">
+                  <span
+                    class="shrink-0 truncate font-mono text-xs font-semibold text-slate-500"
+                    :title="object.className"
+                  >
                     {{ object.className }}
                   </span>
                   <UInput
                     class="min-w-0 flex-1"
                     :model-value="object.args"
                     placeholder="constructor arguments (optional)"
-                    :ui="{ base: 'font-mono text-xs' }"
-                    @update:model-value="updateExtensionObjectArgs(object.id, $event)"
+                    :ui="{base: 'font-mono text-xs'}"
+                    @update:model-value="
+                      updateExtensionObjectArgs(object.id, $event)
+                    "
                   />
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
-                  <UButton size="xs" color="error" variant="soft" @click="removeExtensionObject(object.id)">
+                  <UButton
+                    size="xs"
+                    color="error"
+                    variant="soft"
+                    @click="removeExtensionObject(object.id)"
+                  >
                     Remove
                   </UButton>
-                  <UButton size="xs" color="primary" variant="soft" @click="addExtensionObject(object.className)">
+                  <UButton
+                    size="xs"
+                    color="primary"
+                    variant="soft"
+                    @click="addExtensionObject(object.className)"
+                  >
                     + Object
                   </UButton>
                 </div>
@@ -1811,11 +2067,13 @@ onBeforeUnmount(() => {
               <div class="flex shrink-0 gap-1">
                 <UButton
                   size="xs"
-                  :color="isExtensionLoaded(cls.className) ? 'error' : 'primary'"
+                  :color="
+                    isExtensionLoaded(cls.className) ? 'error' : 'primary'
+                  "
                   :variant="isExtensionLoaded(cls.className) ? 'soft' : 'solid'"
                   @click="toggleExtension(cls.className)"
                 >
-                  {{ isExtensionLoaded(cls.className) ? "Remove" : "Add" }}
+                  {{ isExtensionLoaded(cls.className) ? 'Remove' : 'Add' }}
                 </UButton>
                 <UButton
                   size="xs"
@@ -1831,7 +2089,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template #footer="{ close }">
+      <template #footer="{close}">
         <UButton
           color="neutral"
           variant="ghost"

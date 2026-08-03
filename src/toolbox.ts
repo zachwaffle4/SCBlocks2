@@ -113,21 +113,6 @@ const setMotorPositionBlock = (): ToolboxBlock => ({
   },
 });
 
-const mechanismSetPowerBlock = (): ToolboxBlock => ({
-  kind: 'block',
-  type: 'sc_mechanism_set_power',
-  inputs: {
-    POWER: {
-      shadow: numberShadow(50),
-    },
-  },
-});
-
-const mechanismStopBlock = (): ToolboxBlock => ({
-  kind: 'block',
-  type: 'sc_mechanism_stop',
-});
-
 const runMechanismCommandBlock = (): ToolboxBlock => ({
   kind: 'block',
   type: 'sc_mechanism_run_command',
@@ -531,10 +516,10 @@ const wpilibOutputsCategory = {
 };
 
 const revSensorsCategory = {
-  kind: "category",
-  name: "REV Sensors",
-  categorystyle: "rev_sensors_category",
-  cssConfig: categoryCss("rev-sensors"),
+  kind: 'category',
+  name: 'REV Sensors',
+  categorystyle: 'rev_sensors_category',
+  cssConfig: categoryCss('rev-sensors'),
   contents: [
     revColorSensorColorTriggerBlock(),
     revColorSensorProximityTriggerBlock(),
@@ -731,210 +716,228 @@ export const buildToolbox = ({
   editor?: 'opmode' | 'subsystem';
   robotMode?: 'simple' | 'advanced';
 }) => ({
-  ...(editor === 'subsystem' ? subsystemToolbox({
-    includeWpilibSensors,
-    includeWpilibOutputs,
-    includeRevSensors,
-  }) : {
-  kind: 'categoryToolbox',
-  contents: [
-    {
-      kind: 'category',
-      name: 'OpMode',
-      categorystyle: 'events_category',
-      cssConfig: categoryCss('events'),
-      contents: [
-        // OpMode-scoped hats. Configure a tab from the OpMode button, put
-        // project-wide hardware in Robot Setup, and use these only for a start
-        // stack, advanced per-opmode setup, or an always-active trigger.
-        {
-          kind: 'block',
-          type: 'sc_on_start',
-          next: {
-            block: defaultOpmodeCommandBlock(robotMode),
+  ...(editor === 'subsystem'
+    ? subsystemToolbox({
+        includeWpilibSensors,
+        includeWpilibOutputs,
+        includeRevSensors,
+      })
+    : {
+        kind: 'categoryToolbox',
+        contents: [
+          {
+            kind: 'category',
+            name: 'OpMode',
+            categorystyle: 'events_category',
+            cssConfig: categoryCss('events'),
+            contents: [
+              // OpMode-scoped hats. Configure a tab from the OpMode button, put
+              // project-wide hardware in Robot Setup, and use these only for a start
+              // stack, advanced per-opmode setup, or an always-active trigger.
+              {
+                kind: 'block',
+                type: 'sc_on_start',
+                next: {
+                  block: defaultOpmodeCommandBlock(robotMode),
+                },
+              },
+              {
+                kind: 'block',
+                type: 'sc_on_setup',
+              },
+              {
+                kind: 'block',
+                type: 'sc_trigger',
+                inputs: {
+                  CONDITION: {
+                    block: defaultOpmodeConditionBlock(robotMode),
+                  },
+                },
+                next: {
+                  block: defaultOpmodeCommandBlock(robotMode),
+                },
+              },
+            ],
           },
-        },
-        {
-          kind: 'block',
-          type: 'sc_on_setup',
-        },
-        {
-          kind: 'block',
-          type: 'sc_trigger',
-          inputs: {
-            CONDITION: {
-              block: defaultOpmodeConditionBlock(robotMode),
-            },
+          ...(robotMode === 'simple'
+            ? [
+                {
+                  kind: 'category',
+                  name: 'Motors',
+                  categorystyle: 'motion_category',
+                  cssConfig: categoryCss('motion'),
+                  contents: [
+                    setMotorPowerBlock(),
+                    runForSecondsBlock(),
+                    stopMotorBlock(),
+                    setMotorVelocityBlock(),
+                    setMotorPositionBlock(),
+                  ],
+                },
+              ]
+            : []),
+          ...(robotMode === 'simple'
+            ? [
+                {
+                  kind: 'category',
+                  name: 'Movement',
+                  categorystyle: 'movement_category',
+                  cssConfig: categoryCss('movement'),
+                  contents: [
+                    movementMotorsBlock(),
+                    arcadeDriveBlock(),
+                    tankDriveBlock(),
+                    stopDrivetrainBlock(),
+                    mecanumDriveBlock(),
+                    stopMecanumBlock(),
+                  ],
+                },
+              ]
+            : []),
+          ...(robotMode === 'advanced'
+            ? [
+                {
+                  kind: 'category',
+                  name: 'Subsystems',
+                  categorystyle: 'movement_category',
+                  cssConfig: categoryCss('movement'),
+                  contents: [runMechanismCommandBlock()],
+                },
+              ]
+            : []),
+          {
+            kind: 'category',
+            name: 'Control',
+            categorystyle: 'control_category',
+            cssConfig: categoryCss('control'),
+            contents: [
+              ifBlock(defaultOpmodeConditionBlock(robotMode)),
+              {
+                kind: 'block',
+                type: 'sc_wait_seconds',
+                inputs: {
+                  SECONDS: {
+                    shadow: numberShadow(1),
+                  },
+                },
+              },
+              {
+                kind: 'block',
+                type: 'sc_repeat_commands',
+                inputs: {
+                  TIMES: {
+                    shadow: numberShadow(3),
+                  },
+                },
+              },
+              {
+                kind: 'block',
+                type: 'sc_while_commands',
+                inputs: {
+                  CONDITION: {
+                    shadow: booleanBlock(),
+                  },
+                },
+              },
+              {kind: 'block', type: 'sc_parallel_commands'},
+              {kind: 'block', type: 'sc_race_commands'},
+              {kind: 'block', type: 'sc_deadline_commands'},
+              {
+                kind: 'block',
+                type: 'sc_wait_until',
+                inputs: {
+                  CONDITION: {
+                    block: defaultOpmodeConditionBlock(robotMode),
+                  },
+                },
+              },
+            ],
           },
-          next: {
-            block: defaultOpmodeCommandBlock(robotMode),
+          ...(robotMode === 'simple'
+            ? [
+                {
+                  kind: 'category',
+                  name: 'Sensing',
+                  categorystyle: 'sensing_category',
+                  cssConfig: categoryCss('sensing'),
+                  contents: [sensorValueBlock()],
+                },
+              ]
+            : []),
+          ...(includeWpilibSensors ? [wpilibSensorsCategory] : []),
+          ...(includeWpilibOutputs ? [wpilibOutputsCategory] : []),
+          ...(includeRevSensors ? [revSensorsCategory] : []),
+          ...(includeGamepad ? [gamepadCategory] : []),
+          {
+            kind: 'category',
+            name: 'Operators',
+            categorystyle: 'operators_category',
+            cssConfig: categoryCss('operators'),
+            contents: [
+              numberShadow(0),
+              {
+                kind: 'block',
+                type: 'math_arithmetic',
+                inputs: {
+                  A: {
+                    shadow: numberShadow(1),
+                  },
+                  B: {
+                    shadow: numberShadow(1),
+                  },
+                },
+              },
+              absoluteValueBlock(),
+              {
+                kind: 'block',
+                type: 'math_number_property',
+                inputs: {
+                  NUMBER_TO_CHECK: {
+                    shadow: numberShadow(0),
+                  },
+                },
+              },
+              {
+                kind: 'block',
+                type: 'logic_compare',
+              },
+              isWithinBlock(),
+              {
+                kind: 'block',
+                type: 'logic_operation',
+              },
+              {
+                kind: 'block',
+                type: 'logic_boolean',
+              },
+            ],
           },
-        },
-      ],
-    },
-    ...(robotMode === 'simple' ? [{
-      kind: 'category',
-      name: 'Motors',
-      categorystyle: 'motion_category',
-      cssConfig: categoryCss('motion'),
-      contents: [
-        setMotorPowerBlock(),
-        runForSecondsBlock(),
-        stopMotorBlock(),
-        setMotorVelocityBlock(),
-        setMotorPositionBlock(),
-      ],
-    }] : []),
-    ...(robotMode === 'simple' ? [{
-      kind: 'category',
-      name: 'Movement',
-      categorystyle: 'movement_category',
-      cssConfig: categoryCss('movement'),
-      contents: [
-        movementMotorsBlock(),
-        arcadeDriveBlock(),
-        tankDriveBlock(),
-        stopDrivetrainBlock(),
-        mecanumDriveBlock(),
-        stopMecanumBlock(),
-      ],
-    }] : []),
-    ...(robotMode === 'advanced' ? [{
-      kind: 'category',
-      name: 'Subsystems',
-      categorystyle: 'movement_category',
-      cssConfig: categoryCss('movement'),
-      contents: [runMechanismCommandBlock()],
-    }] : []),
-    {
-      kind: 'category',
-      name: 'Control',
-      categorystyle: 'control_category',
-      cssConfig: categoryCss('control'),
-      contents: [
-        ifBlock(defaultOpmodeConditionBlock(robotMode)),
-        {
-          kind: 'block',
-          type: 'sc_wait_seconds',
-          inputs: {
-            SECONDS: {
-              shadow: numberShadow(1),
-            },
+          {
+            kind: 'category',
+            name: 'Variables',
+            categorystyle: 'variables_category',
+            cssConfig: categoryCss('variables'),
+            custom: SC_TYPED_VARIABLE_CATEGORY,
           },
-        },
-        {
-          kind: 'block',
-          type: 'sc_repeat_commands',
-          inputs: {
-            TIMES: {
-              shadow: numberShadow(3),
-            },
+          {
+            kind: 'category',
+            name: 'My Blocks',
+            categorystyle: 'myblocks_category',
+            cssConfig: categoryCss('myblocks'),
+            custom: 'PROCEDURE',
           },
-        },
-        {
-          kind: 'block',
-          type: 'sc_while_commands',
-          inputs: {
-            CONDITION: {
-              shadow: booleanBlock(),
-            },
+          {
+            kind: 'category',
+            name: 'Extensions',
+            categorystyle: 'advanced_category',
+            cssConfig: categoryCss('advanced'),
+            // Escape hatch: the full generated RobotPy API is reachable here, but only
+            // once a class is loaded as an extension. Nothing generated is in the
+            // toolbox by default — the flyout is built dynamically in extensions.ts.
+            custom: EXTENSIONS_TOOLBOX_CATEGORY,
           },
-        },
-        {kind: 'block', type: 'sc_parallel_commands'},
-        {kind: 'block', type: 'sc_race_commands'},
-        {kind: 'block', type: 'sc_deadline_commands'},
-        {
-          kind: 'block',
-          type: 'sc_wait_until',
-          inputs: {
-            CONDITION: {
-              block: defaultOpmodeConditionBlock(robotMode),
-            },
-          },
-        },
-      ],
-    },
-    ...(robotMode === 'simple' ? [{
-      kind: 'category',
-      name: 'Sensing',
-      categorystyle: 'sensing_category',
-      cssConfig: categoryCss('sensing'),
-      contents: [sensorValueBlock()],
-    }] : []),
-    ...(includeWpilibSensors ? [wpilibSensorsCategory] : []),
-    ...(includeWpilibOutputs ? [wpilibOutputsCategory] : []),
-    ...(includeRevSensors ? [revSensorsCategory] : []),
-    ...(includeGamepad ? [gamepadCategory] : []),
-    {
-      kind: 'category',
-      name: 'Operators',
-      categorystyle: 'operators_category',
-      cssConfig: categoryCss('operators'),
-      contents: [
-        numberShadow(0),
-        {
-          kind: 'block',
-          type: 'math_arithmetic',
-          inputs: {
-            A: {
-              shadow: numberShadow(1),
-            },
-            B: {
-              shadow: numberShadow(1),
-            },
-          },
-        },
-        absoluteValueBlock(),
-        {
-          kind: 'block',
-          type: 'math_number_property',
-          inputs: {
-            NUMBER_TO_CHECK: {
-              shadow: numberShadow(0),
-            },
-          },
-        },
-        {
-          kind: 'block',
-          type: 'logic_compare',
-        },
-        isWithinBlock(),
-        {
-          kind: 'block',
-          type: 'logic_operation',
-        },
-        {
-          kind: 'block',
-          type: 'logic_boolean',
-        },
-      ],
-    },
-    {
-      kind: 'category',
-      name: 'Variables',
-      categorystyle: 'variables_category',
-      cssConfig: categoryCss('variables'),
-      custom: SC_TYPED_VARIABLE_CATEGORY,
-    },
-    {
-      kind: 'category',
-      name: 'My Blocks',
-      categorystyle: 'myblocks_category',
-      cssConfig: categoryCss('myblocks'),
-      custom: 'PROCEDURE',
-    },
-    {
-      kind: 'category',
-      name: 'Extensions',
-      categorystyle: 'advanced_category',
-      cssConfig: categoryCss('advanced'),
-      // Escape hatch: the full generated RobotPy API is reachable here, but only
-      // once a class is loaded as an extension. Nothing generated is in the
-      // toolbox by default — the flyout is built dynamically in extensions.ts.
-      custom: EXTENSIONS_TOOLBOX_CATEGORY,
-    },
-  ],
-  }),
+        ],
+      }),
 });
 
 // Default toolbox (no gamepad category). App.vue swaps in the gamepad variant

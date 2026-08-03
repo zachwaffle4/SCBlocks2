@@ -44,7 +44,10 @@ const assert = (condition: unknown, message: string) => {
 };
 
 const assertIncludes = (haystack: string, needle: string) => {
-  assert(haystack.includes(needle), `Expected generated code to include: ${needle}`);
+  assert(
+    haystack.includes(needle),
+    `Expected generated code to include: ${needle}`,
+  );
 };
 
 registerDeviceField();
@@ -163,7 +166,10 @@ assert(
   'The contextual if block should use the Control block style',
 );
 commandIf.loadExtraState?.({hasElse: true});
-assert(commandIf.getInput('ELSE'), 'The if block should support an else branch');
+assert(
+  commandIf.getInput('ELSE'),
+  'The if block should support an else branch',
+);
 const commandCondition = ifWorkspace.newBlock('logic_boolean');
 commandCondition.setFieldValue('TRUE', 'BOOL');
 connectValue(commandIf, 'IF0', commandCondition);
@@ -337,7 +343,9 @@ connectNext(revProximityTrigger, revProximityStop);
 
 // Dedicated WPILib sensor triggers build their sensor object in __init__ and
 // use it in the Trigger condition, just like the REV sensor triggers.
-const digitalInputTrigger = workspace.newBlock('sc_wpilib_digital_input_trigger');
+const digitalInputTrigger = workspace.newBlock(
+  'sc_wpilib_digital_input_trigger',
+);
 digitalInputTrigger.setFieldValue(4, 'CHANNEL');
 const digitalInputTriggerStop = workspace.newBlock('sc_motor_stop');
 setDevice(digitalInputTriggerStop);
@@ -395,7 +403,10 @@ assert(
 );
 details.setFieldValue('TRUE', 'ENABLED');
 const fullSensorCode = generateAllOpmodes([
-  {id: 'sensor-imports', state: Blockly.serialization.workspaces.save(workspace)},
+  {
+    id: 'sensor-imports',
+    state: Blockly.serialization.workspaces.save(workspace),
+  },
 ]);
 assertIncludes(fullSensorCode, 'import rev');
 
@@ -422,8 +433,8 @@ gamepadTrigger.dispose(true);
 
 // The gamepad category is Teleop-only: present when requested, absent from the
 // default toolbox.
-const teleopCategoryNames = buildToolbox({includeGamepad: true}).contents
-  .filter((item) => item.kind === 'category')
+const teleopCategoryNames = buildToolbox({includeGamepad: true})
+  .contents.filter((item) => item.kind === 'category')
   .map((item) => (item as {name?: string}).name);
 assert(
   teleopCategoryNames.includes('Gamepad'),
@@ -438,7 +449,10 @@ const categoryNames = toolbox.contents
   .filter((item) => item.kind === 'category')
   .map((item) => (item as {name?: string}).name);
 // OpModes are tabs (one workspace + hat block each), not a toolbox category.
-assert(!categoryNames.includes('OpModes'), 'OpModes should be tabs, not a category');
+assert(
+  !categoryNames.includes('OpModes'),
+  'OpModes should be tabs, not a category',
+);
 assert(
   !categoryNames.includes('Gamepad'),
   'Default toolbox must not include the Gamepad category (Teleop-only)',
@@ -455,8 +469,8 @@ assert(
 const sensorsCategoryNames = buildToolbox({
   includeGamepad: false,
   includeWpilibSensors: true,
-}).contents
-  .filter((item) => item.kind === 'category')
+})
+  .contents.filter((item) => item.kind === 'category')
   .map((item) => (item as {name?: string}).name);
 assert(
   sensorsCategoryNames.includes('WPILib Sensors'),
@@ -475,8 +489,8 @@ assert(
 const revSensorsCategoryNames = buildToolbox({
   includeGamepad: false,
   includeRevSensors: true,
-}).contents
-  .filter((item) => item.kind === 'category')
+})
+  .contents.filter((item) => item.kind === 'category')
   .map((item) => (item as {name?: string}).name);
 assert(
   revSensorsCategoryNames.includes('REV Sensors'),
@@ -492,7 +506,8 @@ assertIncludes(revSensorsToolbox, 'sc_rev_color_sensor_sees_color');
 assertIncludes(revSensorsToolbox, 'sc_rev_color_sensor_proximity_trigger');
 
 const extensionsCategory = toolbox.contents.find(
-  (item) => item.kind === 'category' && (item as {name?: string}).name === 'Extensions',
+  (item) =>
+    item.kind === 'category' && (item as {name?: string}).name === 'Extensions',
 );
 assert(extensionsCategory, 'Missing Extensions category');
 assert(
@@ -611,7 +626,14 @@ const staleSensorConditionState = makeOpmodeState('Teleop', 'Sensor Check');
 });
 const migratedSensorCondition = migrateWorkspaceState(
   staleSensorConditionState,
-) as {blocks: {blocks: Array<{type?: string; inputs?: Record<string, {block?: {type?: string}}>}>}};
+) as {
+  blocks: {
+    blocks: Array<{
+      type?: string;
+      inputs?: Record<string, {block?: {type?: string}}>;
+    }>;
+  };
+};
 const migratedTrigger = migratedSensorCondition.blocks.blocks.find(
   (block) => block.type === 'sc_trigger',
 );
@@ -620,14 +642,20 @@ assert(
   'Stale numeric sensor condition should be wrapped in a comparison',
 );
 const migratedWorkspace = new Blockly.Workspace();
-Blockly.serialization.workspaces.load(migratedSensorCondition, migratedWorkspace);
+Blockly.serialization.workspaces.load(
+  migratedSensorCondition,
+  migratedWorkspace,
+);
 migratedWorkspace.dispose();
 
 const migratedCode = generateAllOpmodes([
   {id: 'stale-sensor', state: staleSensorConditionState},
 ]);
 assertIncludes(migratedCode, 'Trigger(lambda:');
-assertIncludes(migratedCode, 'self.drive_motor.get_encoder_velocity().get() > 0');
+assertIncludes(
+  migratedCode,
+  'self.drive_motor.get_encoder_velocity().get() > 0',
+);
 
 // ---------------------------------------------------------------------------
 // Drivetrain wrappers: one set-movement-motors block owns the motor choices,
@@ -636,8 +664,16 @@ assertIncludes(migratedCode, 'self.drive_motor.get_encoder_velocity().get() > 0'
 
 const rightMotor = addDevice({name: 'right_motor', bus: 4, deviceId: 2});
 const rearLeftMotor = addDevice({name: 'rear_left_motor', bus: 5, deviceId: 3});
-const frontRightMotor = addDevice({name: 'front_right_motor', bus: 6, deviceId: 4});
-const rearRightMotor = addDevice({name: 'rear_right_motor', bus: 7, deviceId: 5});
+const frontRightMotor = addDevice({
+  name: 'front_right_motor',
+  bus: 6,
+  deviceId: 4,
+});
+const rearRightMotor = addDevice({
+  name: 'rear_right_motor',
+  bus: 7,
+  deviceId: 5,
+});
 
 const drivetrainWorkspace = new Blockly.Workspace();
 const movementMotors = drivetrainWorkspace.newBlock('sc_movement_motors');
@@ -656,18 +692,36 @@ assert(
 
 const drivetrainStart = drivetrainWorkspace.newBlock('sc_on_start');
 const arcadeDrive = drivetrainWorkspace.newBlock('sc_drivetrain_arcade_drive');
-assert(!arcadeDrive.getField('LEFT_DEVICE'), 'Drive blocks should not pick motors');
+assert(
+  !arcadeDrive.getField('LEFT_DEVICE'),
+  'Drive blocks should not pick motors',
+);
 connectValue(arcadeDrive, 'FORWARD', numberBlock(30, drivetrainWorkspace));
 connectValue(arcadeDrive, 'TURN', numberBlock(15, drivetrainWorkspace));
 connectNext(drivetrainStart, arcadeDrive);
 
 pythonGenerator.init(drivetrainWorkspace);
-const drivetrainCode = generateOpmodeClass(drivetrainWorkspace, pythonGenerator);
+const drivetrainCode = generateOpmodeClass(
+  drivetrainWorkspace,
+  pythonGenerator,
+);
 assertIncludes(drivetrainCode, 'self.right_motor = A301(2, 4)');
-assertIncludes(drivetrainCode, 'self.movement_drive = wpilib.DifferentialDrive(');
-assertIncludes(drivetrainCode, 'lambda output: self.drive_motor.set_throttle(output),');
-assertIncludes(drivetrainCode, 'lambda output: self.right_motor.set_throttle(output),');
-assertIncludes(drivetrainCode, 'self.movement_drive.arcade_drive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (15) / 100.0)))');
+assertIncludes(
+  drivetrainCode,
+  'self.movement_drive = wpilib.DifferentialDrive(',
+);
+assertIncludes(
+  drivetrainCode,
+  'lambda output: self.drive_motor.set_throttle(output),',
+);
+assertIncludes(
+  drivetrainCode,
+  'lambda output: self.right_motor.set_throttle(output),',
+);
+assertIncludes(
+  drivetrainCode,
+  'self.movement_drive.arcade_drive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (15) / 100.0)))',
+);
 
 movementMotors.setFieldValue(
   serializeMovementMotorsConfig({
@@ -692,14 +746,27 @@ assertIncludes(mecanumCode, 'self.rear_left_motor = A301(3, 5)');
 assertIncludes(mecanumCode, 'self.front_right_motor = A301(4, 6)');
 assertIncludes(mecanumCode, 'self.rear_right_motor = A301(5, 7)');
 assertIncludes(mecanumCode, 'self.movement_drive = wpilib.MecanumDrive(');
-assertIncludes(mecanumCode, 'lambda output: self.rear_left_motor.set_throttle(output),');
-assertIncludes(mecanumCode, 'lambda output: self.front_right_motor.set_throttle(output),');
-assertIncludes(mecanumCode, 'lambda output: self.rear_right_motor.set_throttle(output),');
-assertIncludes(mecanumCode, 'self.movement_drive.drive_cartesian(max(-1, min(1, (10) / 100.0)), max(-1, min(1, (20) / 100.0)), max(-1, min(1, (5) / 100.0)))');
+assertIncludes(
+  mecanumCode,
+  'lambda output: self.rear_left_motor.set_throttle(output),',
+);
+assertIncludes(
+  mecanumCode,
+  'lambda output: self.front_right_motor.set_throttle(output),',
+);
+assertIncludes(
+  mecanumCode,
+  'lambda output: self.rear_right_motor.set_throttle(output),',
+);
+assertIncludes(
+  mecanumCode,
+  'self.movement_drive.drive_cartesian(max(-1, min(1, (10) / 100.0)), max(-1, min(1, (20) / 100.0)), max(-1, min(1, (5) / 100.0)))',
+);
 drivetrainWorkspace.dispose();
 
 const motionCategory = toolbox.contents.find(
-  (item) => item.kind === 'category' && (item as {name?: string}).name === 'Motors',
+  (item) =>
+    item.kind === 'category' && (item as {name?: string}).name === 'Motors',
 );
 const motionBlocks = JSON.stringify(motionCategory ?? {});
 assertIncludes(motionBlocks, 'sc_motor_set_power');
@@ -730,8 +797,14 @@ assertIncludes(movementBlocks, 'sc_mecanum_stop');
 
 const teleopTab = {id: 'a', state: makeOpmodeState('Teleop', 'Drive')};
 const autoTab = {id: 'b', state: makeOpmodeState('Auto', 'Score')};
-assert(opmodeInfoFromState(teleopTab.state).type === 'Teleop', 'Bad tab info parse');
-assert(opmodeInfoFromState(autoTab.state).name === 'Score', 'Bad tab name parse');
+assert(
+  opmodeInfoFromState(teleopTab.state).type === 'Teleop',
+  'Bad tab info parse',
+);
+assert(
+  opmodeInfoFromState(autoTab.state).name === 'Score',
+  'Bad tab name parse',
+);
 
 const multiCode = generateAllOpmodes([teleopTab, autoTab]);
 assertIncludes(multiCode, 'class Drive(wpilib.PeriodicOpMode):');
@@ -762,13 +835,17 @@ connectNext(imuTrigger, imuReset);
 
 // An "on start" stack: publish the IMU heading and match time to the dashboard.
 const extrasStart = wpilibExtrasWorkspace.newBlock('sc_on_start');
-const dashboardPut = wpilibExtrasWorkspace.newBlock('sc_wpilib_smartdashboard_put');
+const dashboardPut = wpilibExtrasWorkspace.newBlock(
+  'sc_wpilib_smartdashboard_put',
+);
 dashboardPut.setFieldValue('heading', 'KEY');
 const imuHeading = wpilibExtrasWorkspace.newBlock('sc_wpilib_imu_value');
 imuHeading.setFieldValue('HEADING', 'READING');
 connectValue(dashboardPut, 'VALUE', imuHeading);
 connectNext(extrasStart, dashboardPut);
-const digitalOut = wpilibExtrasWorkspace.newBlock('sc_wpilib_digital_output_set');
+const digitalOut = wpilibExtrasWorkspace.newBlock(
+  'sc_wpilib_digital_output_set',
+);
 digitalOut.setFieldValue('2', 'CHANNEL');
 digitalOut.setFieldValue('ON', 'STATE');
 dashboardPut.nextConnection!.connect(digitalOut.previousConnection!);
@@ -781,12 +858,20 @@ assert(Array.isArray(matchTimeCode), 'Match time should be a value expression');
 assertIncludes(matchTimeCode[0], 'wpilib.Timer.get_match_time()');
 matchTime.dispose(true);
 
-const dashboardGet = wpilibExtrasWorkspace.newBlock('sc_wpilib_smartdashboard_get');
+const dashboardGet = wpilibExtrasWorkspace.newBlock(
+  'sc_wpilib_smartdashboard_get',
+);
 dashboardGet.setFieldValue('target', 'KEY');
 pythonGenerator.init(wpilibExtrasWorkspace);
 const dashboardGetCode = pythonGenerator.blockToCode(dashboardGet);
-assert(Array.isArray(dashboardGetCode), 'Dashboard get should be a value expression');
-assertIncludes(dashboardGetCode[0], 'wpilib.SmartDashboard.get_number("target", 0)');
+assert(
+  Array.isArray(dashboardGetCode),
+  'Dashboard get should be a value expression',
+);
+assertIncludes(
+  dashboardGetCode[0],
+  'wpilib.SmartDashboard.get_number("target", 0)',
+);
 dashboardGet.dispose(true);
 
 pythonGenerator.init(wpilibExtrasWorkspace);
@@ -796,9 +881,15 @@ assertIncludes(
   'self.imu = wpilib.OnboardIMU(wpilib.OnboardIMU.MountOrientation.FLAT)',
 );
 assertIncludes(extrasCode, 'self.digital_output_2 = wpilib.DigitalOutput(2)');
-assertIncludes(extrasCode, 'Trigger(lambda: math.degrees(self.imu.get_yaw()) >= (90))');
+assertIncludes(
+  extrasCode,
+  'Trigger(lambda: math.degrees(self.imu.get_yaw()) >= (90))',
+);
 assertIncludes(extrasCode, 'self.imu.reset_yaw()');
-assertIncludes(extrasCode, 'wpilib.SmartDashboard.put_number("heading", math.degrees(self.imu.get_yaw()))');
+assertIncludes(
+  extrasCode,
+  'wpilib.SmartDashboard.put_number("heading", math.degrees(self.imu.get_yaw()))',
+);
 assertIncludes(extrasCode, 'self.digital_output_2.set(True)');
 
 // The IMU is a singleton: exactly one OnboardIMU construction even though three
@@ -911,18 +1002,33 @@ pythonGenerator.init(mechanismWorkspace);
 const mechanismCode = generateOpmodeClass(mechanismWorkspace, pythonGenerator);
 assertIncludes(mechanismCode, 'self.digital_input_0 = wpilib.DigitalInput(0)');
 assertIncludes(mechanismCode, 'self.intake_timer = wpilib.Timer()');
-assertIncludes(mechanismCode, 'self.intake = IntakeSubsystem(self.digital_input_0, self.intake_timer)');
+assertIncludes(
+  mechanismCode,
+  'self.intake = IntakeSubsystem(self.digital_input_0, self.intake_timer)',
+);
 assertIncludes(mechanismCode, 'self.intake.on_start()');
 assertIncludes(mechanismCode, 'self.intake.command_intake_piece()');
 const mechanismFile = generateAllOpmodes([
-  {id: 'mechanism-test', state: Blockly.serialization.workspaces.save(mechanismWorkspace)},
+  {
+    id: 'mechanism-test',
+    state: Blockly.serialization.workspaces.save(mechanismWorkspace),
+  },
 ]);
 assertIncludes(mechanismFile, 'class IntakeSubsystem(Mechanism):');
 assertIncludes(mechanismFile, 'self.drive_motor = A301(0, 3)');
 assertIncludes(mechanismFile, 'self.right_motor = A301(2, 4)');
-assertIncludes(mechanismFile, 'self._motors = [self.drive_motor, self.right_motor]');
-assertIncludes(mechanismFile, 'def __init__(self, resource_digital_input_0, resource_intake_timer):');
-assertIncludes(mechanismFile, 'self.digital_input_0 = resource_digital_input_0');
+assertIncludes(
+  mechanismFile,
+  'self._motors = [self.drive_motor, self.right_motor]',
+);
+assertIncludes(
+  mechanismFile,
+  'def __init__(self, resource_digital_input_0, resource_intake_timer):',
+);
+assertIncludes(
+  mechanismFile,
+  'self.digital_input_0 = resource_digital_input_0',
+);
 assertIncludes(mechanismFile, 'self.intake_timer = resource_intake_timer');
 assertIncludes(mechanismFile, 'def on_start(self):');
 assertIncludes(mechanismFile, 'def command_intake_piece(self):');
@@ -1015,7 +1121,8 @@ extensionDetails.setFieldValue('Library Test', 'NAME');
 const extensionStart = extensionWorkspace.newBlock('sc_on_start');
 const extensionCall = extensionWorkspace.newBlock('sc_ext_instance_call');
 assert(
-  extensionCall.getField('INSTANCE')?.constructor.name === 'FieldExtensionInstance',
+  extensionCall.getField('INSTANCE')?.constructor.name ===
+    'FieldExtensionInstance',
   'Advanced instance calls should use the named-object dropdown',
 );
 extensionCall.setFieldValue('wpilib.Timer', 'CLASS');
@@ -1028,7 +1135,10 @@ const extensionCode = generateOpmodeClass(extensionWorkspace, pythonGenerator);
 assertIncludes(extensionCode, 'self.match_timer = wpilib.Timer()');
 assertIncludes(extensionCode, 'self.match_timer.restart()');
 const extensionFile = generateAllOpmodes([
-  {id: 'library-test', state: Blockly.serialization.workspaces.save(extensionWorkspace)},
+  {
+    id: 'library-test',
+    state: Blockly.serialization.workspaces.save(extensionWorkspace),
+  },
 ]);
 assertIncludes(extensionFile, 'import wpilib');
 assertIncludes(extensionFile, 'async def block_on_start(self):');
@@ -1044,8 +1154,8 @@ assert(
 const outputsCategoryNames = buildToolbox({
   includeGamepad: false,
   includeWpilibOutputs: true,
-}).contents
-  .filter((item) => item.kind === 'category')
+})
+  .contents.filter((item) => item.kind === 'category')
   .map((item) => (item as {name?: string}).name);
 assert(
   outputsCategoryNames.includes('WPILib Outputs'),

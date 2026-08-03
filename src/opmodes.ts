@@ -16,13 +16,9 @@ import {
 import {getMechanisms} from './mechanisms';
 import {getRobotMode} from './robotMode';
 
-
 export const OPMODE_DETAILS_BLOCK_TYPE = 'sc_opmode_details';
 
-const BASE_IMPORT_LINES = [
-  'from commands3 import *',
-  'import wpilib',
-];
+const BASE_IMPORT_LINES = ['from commands3 import *', 'import wpilib'];
 
 const OPMODE_TYPE_TO_DECORATOR: Record<OpModeType, string> = {
   Teleop: 'teleop',
@@ -47,8 +43,7 @@ export type OpModeInfo = {
 };
 
 let nextId = 1;
-export const newTabId = () =>
-  `opmode-${Date.now().toString(36)}-${nextId++}`;
+export const newTabId = () => `opmode-${Date.now().toString(36)}-${nextId++}`;
 
 /**
  * A fresh opmode workspace: the details hat plus an "on start" hat, each an
@@ -198,7 +193,9 @@ const migrateSerializedBlock = (block: SerializedBlock | undefined) => {
  * Repairs older saved opmodes whose Boolean condition sockets contained the
  * numeric A301 sensor block directly. Blockly v13 rejects that during load.
  */
-export const migrateWorkspaceState = (state: WorkspaceState): WorkspaceState => {
+export const migrateWorkspaceState = (
+  state: WorkspaceState,
+): WorkspaceState => {
   const migrated = JSON.parse(JSON.stringify(state ?? {})) as WorkspaceState;
   const blocks = (migrated as {blocks?: {blocks?: SerializedBlock[]}})?.blocks
     ?.blocks;

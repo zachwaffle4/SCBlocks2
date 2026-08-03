@@ -15,7 +15,9 @@ const inputPath = resolve(
 const outputPath = resolve(process.argv[3] || 'src/generated/a301.ts');
 
 const data = JSON.parse(readFileSync(inputPath, 'utf8'));
-const a301Class = data.classes?.find((classData) => classData.className === 'rev.A301');
+const a301Class = data.classes?.find(
+  (classData) => classData.className === 'rev.A301',
+);
 
 if (!a301Class) {
   throw new Error(`Could not find rev.A301 in ${inputPath}`);
@@ -34,9 +36,9 @@ const methodId = (method, seen) => {
     return base;
   }
 
-  const suffix = method.returnType
-    .replace(/[^A-Za-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '') || 'overload';
+  const suffix =
+    method.returnType.replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '') ||
+    'overload';
   const candidate = `${base}_${suffix}`;
   seen.add(candidate);
   return candidate;

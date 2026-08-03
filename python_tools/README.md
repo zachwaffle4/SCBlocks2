@@ -21,6 +21,7 @@ to refresh the bindings against a newer RobotPy release.
 The following instructions work on macOS Sonoma 14.6.1.
 
 ### Setup
+
     1. cd <your repo>/python_tools
     1. python3.12 -m venv ./venv
     1. source venv/bin/activate
@@ -28,6 +29,7 @@ The following instructions work on macOS Sonoma 14.6.1.
     1. deactivate
 
 ### Regenerate
+
     1. cd <your repo>/python_tools
     1. source venv/bin/activate
     1. python3.12 generate_json.py --output_directory=.
@@ -36,6 +38,7 @@ The following instructions work on macOS Sonoma 14.6.1.
 That writes `./generated/robotpy_data.json` (and `./generated/runtime_python.json`).
 
 ### Then refresh the TypeScript bindings
+
     1. cd <your repo>
     1. npm run generate:api      # -> src/generated/robotpy-api.ts
     1. npm run generate:a301     # -> src/generated/a301.ts

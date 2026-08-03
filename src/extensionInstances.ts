@@ -25,8 +25,7 @@ const notify = () => {
   for (const listener of listeners) listener();
 };
 
-const newInstanceId = () =>
-  `object-${Date.now().toString(36)}-${nextId++}`;
+const newInstanceId = () => `object-${Date.now().toString(36)}-${nextId++}`;
 
 const uniqueName = (base: string) => {
   const taken = new Set(instances.map((instance) => instance.name));
@@ -54,11 +53,12 @@ export const onExtensionInstancesChanged = (listener: () => void) => {
 export const addExtensionInstance = (
   partial: Partial<ExtensionInstance> & Pick<ExtensionInstance, 'className'>,
 ) => {
-  const fallbackName = partial.className
-    .split('.')
-    .pop()
-    ?.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .toLowerCase() || 'object';
+  const fallbackName =
+    partial.className
+      .split('.')
+      .pop()
+      ?.replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+      .toLowerCase() || 'object';
   const instance: ExtensionInstance = {
     id: partial.id || newInstanceId(),
     name: uniqueName(partial.name?.trim() || fallbackName),
@@ -100,7 +100,8 @@ export const setExtensionInstances = (list: unknown) => {
     for (const item of list) {
       if (!item || typeof item !== 'object') continue;
       const candidate = item as Partial<ExtensionInstance>;
-      if (typeof candidate.className !== 'string' || !candidate.className) continue;
+      if (typeof candidate.className !== 'string' || !candidate.className)
+        continue;
       next.push({
         id: candidate.id || newInstanceId(),
         name: candidate.name?.trim() || 'object',
@@ -126,9 +127,7 @@ const optionsForClass = (className: string, currentValue?: string) => {
   return options;
 };
 
-function instanceMenuGenerator(
-  this: Blockly.FieldDropdown,
-): DropdownOption[] {
+function instanceMenuGenerator(this: Blockly.FieldDropdown): DropdownOption[] {
   const className = this.getSourceBlock()?.getFieldValue('CLASS') || '';
   const current = this.getValue?.();
   return optionsForClass(
@@ -163,7 +162,9 @@ export const registerExtensionInstanceField = () => {
   fieldRegistered = true;
 };
 
-export const refreshExtensionInstanceFields = (workspace: Blockly.Workspace) => {
+export const refreshExtensionInstanceFields = (
+  workspace: Blockly.Workspace,
+) => {
   for (const block of workspace.getAllBlocks(false)) {
     for (const input of block.inputList) {
       for (const field of input.fieldRow) {

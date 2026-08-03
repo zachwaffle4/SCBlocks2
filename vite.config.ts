@@ -2,7 +2,7 @@ import {defineConfig} from 'vite';
 import vue from '@vitejs/plugin-vue';
 import tailwindcss from '@tailwindcss/vite';
 import ui from '@nuxt/ui/vite';
-import { cloudflare } from "@cloudflare/vite-plugin";
+import {cloudflare} from '@cloudflare/vite-plugin';
 
 export default defineConfig({
   plugins: [
@@ -13,8 +13,8 @@ export default defineConfig({
       colorMode: false,
       ui: {
         colors: {
-          primary: "teal",
-          neutral: "slate",
+          primary: 'teal',
+          neutral: 'slate',
         },
       },
     }),

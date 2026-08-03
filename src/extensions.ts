@@ -26,7 +26,6 @@ import {
 import {screamingSnakeCase, snakeCase} from './pythonNaming';
 import {
   extensionInstanceReference,
-
   registerPythonImport,
 } from './generators/python';
 import {
@@ -48,8 +47,7 @@ export const handWrappedExtensions = [
   {
     id: WPILIB_SENSORS_EXTENSION_ID,
     name: 'WPILib Sensors',
-    summary:
-      'Onboard IMU, digital/analog inputs, encoders, and match time.',
+    summary: 'Onboard IMU, digital/analog inputs, encoders, and match time.',
     color: '#FF4C4C',
     chips: ['IMU', 'DIO', 'Encoders'],
   },
@@ -75,7 +73,9 @@ const handWrappedExtensionIds = new Set(
 );
 
 export const isHandWrappedExtension = (id: string) =>
-  handWrappedExtensionIds.has(id as (typeof handWrappedExtensions)[number]['id']);
+  handWrappedExtensionIds.has(
+    id as (typeof handWrappedExtensions)[number]['id'],
+  );
 
 // ---------------------------------------------------------------------------
 // Loaded-extension registry
@@ -127,7 +127,12 @@ const scExtCall = {
   type: 'sc_ext_call',
   message0: 'call %1 . %2',
   args0: [
-    {type: 'field_input', name: 'TARGET', text: 'self.device', spellcheck: false},
+    {
+      type: 'field_input',
+      name: 'TARGET',
+      text: 'self.device',
+      spellcheck: false,
+    },
     {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
   ],
   previousStatement: 'Command',
@@ -142,7 +147,12 @@ const scExtValue = {
   type: 'sc_ext_value',
   message0: '%1 . %2',
   args0: [
-    {type: 'field_input', name: 'TARGET', text: 'self.device', spellcheck: false},
+    {
+      type: 'field_input',
+      name: 'TARGET',
+      text: 'self.device',
+      spellcheck: false,
+    },
     {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
   ],
   output: null,
@@ -230,16 +240,17 @@ Blockly.Extensions.registerMutator(
     },
   },
   undefined,
-  []
+  [],
 );
 
-export const extensionBlocks = Blockly.common.createBlockDefinitionsFromJsonArray([
-  scExtCall,
-  scExtValue,
-  scExtEnum,
-  scExtInstanceCall,
-  scExtInstanceValue,
-]);
+export const extensionBlocks =
+  Blockly.common.createBlockDefinitionsFromJsonArray([
+    scExtCall,
+    scExtValue,
+    scExtEnum,
+    scExtInstanceCall,
+    scExtInstanceValue,
+  ]);
 
 // ---------------------------------------------------------------------------
 // Python generators for the escape-hatch blocks
@@ -334,7 +345,10 @@ extensionForBlock['sc_ext_instance_value'] = function (
 
 type FlyoutItem = {kind: string; [key: string]: unknown};
 
-const instanceCallBlockFor = (cls: ApiClass, method: {name: string; args: {name: string}[]}): FlyoutItem => ({
+const instanceCallBlockFor = (
+  cls: ApiClass,
+  method: {name: string; args: {name: string}[]},
+): FlyoutItem => ({
   kind: 'block',
   type: 'sc_ext_instance_call',
   fields: {
@@ -347,7 +361,10 @@ const instanceCallBlockFor = (cls: ApiClass, method: {name: string; args: {name:
   },
 });
 
-const instanceValueBlockFor = (cls: ApiClass, method: {name: string; args: {name: string}[]}): FlyoutItem => ({
+const instanceValueBlockFor = (
+  cls: ApiClass,
+  method: {name: string; args: {name: string}[]},
+): FlyoutItem => ({
   kind: 'block',
   type: 'sc_ext_instance_value',
   fields: {
@@ -474,9 +491,8 @@ export const registerExtensions = (
   }
   Object.assign(pythonGenerator.forBlock, extensionForBlock);
 
-  workspace.registerToolboxCategoryCallback(
-    EXTENSIONS_TOOLBOX_CATEGORY,
-    () => buildExtensionsFlyout(),
+  workspace.registerToolboxCategoryCallback(EXTENSIONS_TOOLBOX_CATEGORY, () =>
+    buildExtensionsFlyout(),
   );
 
   workspace.registerButtonCallback(ADD_EXTENSION_CALLBACK, () => {
