@@ -1,4 +1,5 @@
 import {EXTENSIONS_TOOLBOX_CATEGORY} from './extensions';
+import {SC_TYPED_VARIABLE_CATEGORY} from './variableCategory';
 
 type ToolboxInput = {
   shadow?: ToolboxBlock;
@@ -649,7 +650,6 @@ const subsystemToolbox = ({
           type: 'sc_repeat_commands',
           inputs: {
             TIMES: {shadow: numberShadow(3)},
-            COMMANDS: {block: setMotorPowerBlock()},
           },
         },
         {
@@ -657,33 +657,11 @@ const subsystemToolbox = ({
           type: 'sc_while_commands',
           inputs: {
             CONDITION: {shadow: booleanBlock()},
-            COMMANDS: {block: motorGroupSetPowerBlock()},
           },
         },
-        {
-          kind: 'block',
-          type: 'sc_parallel_commands',
-          inputs: {
-            FIRST: {block: setMotorPowerBlock()},
-            SECOND: {block: setMotorPowerBlock()},
-          },
-        },
-        {
-          kind: 'block',
-          type: 'sc_race_commands',
-          inputs: {
-            FIRST: {block: setMotorPowerBlock()},
-            SECOND: {block: setMotorPowerBlock()},
-          },
-        },
-        {
-          kind: 'block',
-          type: 'sc_deadline_commands',
-          inputs: {
-            DEADLINE: {block: setMotorPowerBlock()},
-            OTHER: {block: setMotorPowerBlock()},
-          },
-        },
+        {kind: 'block', type: 'sc_parallel_commands'},
+        {kind: 'block', type: 'sc_race_commands'},
+        {kind: 'block', type: 'sc_deadline_commands'},
         {
           kind: 'block',
           type: 'sc_wait_until',
@@ -726,7 +704,7 @@ const subsystemToolbox = ({
       name: 'Variables',
       categorystyle: 'variables_category',
       cssConfig: categoryCss('variables'),
-      custom: 'VARIABLE',
+      custom: SC_TYPED_VARIABLE_CATEGORY,
     },
     {
       kind: 'category',
@@ -851,9 +829,6 @@ export const buildToolbox = ({
             TIMES: {
               shadow: numberShadow(3),
             },
-            COMMANDS: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
           },
         },
         {
@@ -863,47 +838,11 @@ export const buildToolbox = ({
             CONDITION: {
               shadow: booleanBlock(),
             },
-            COMMANDS: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
           },
         },
-        {
-          kind: 'block',
-          type: 'sc_parallel_commands',
-          inputs: {
-            FIRST: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
-            SECOND: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
-          },
-        },
-        {
-          kind: 'block',
-          type: 'sc_race_commands',
-          inputs: {
-            FIRST: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
-            SECOND: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
-          },
-        },
-        {
-          kind: 'block',
-          type: 'sc_deadline_commands',
-          inputs: {
-            DEADLINE: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
-            OTHER: {
-              block: defaultOpmodeCommandBlock(robotMode),
-            },
-          },
-        },
+        {kind: 'block', type: 'sc_parallel_commands'},
+        {kind: 'block', type: 'sc_race_commands'},
+        {kind: 'block', type: 'sc_deadline_commands'},
         {
           kind: 'block',
           type: 'sc_wait_until',
@@ -975,7 +914,7 @@ export const buildToolbox = ({
       name: 'Variables',
       categorystyle: 'variables_category',
       cssConfig: categoryCss('variables'),
-      custom: 'VARIABLE',
+      custom: SC_TYPED_VARIABLE_CATEGORY,
     },
     {
       kind: 'category',

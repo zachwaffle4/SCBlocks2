@@ -266,6 +266,7 @@ export const generateAllOpmodes = (tabs: OpModeTab[]): string => {
       }
     } catch (error) {
       console.warn(`Skipping opmode ${tab.id} during generation:`, error);
+      throw error;
     } finally {
       temp.dispose();
     }

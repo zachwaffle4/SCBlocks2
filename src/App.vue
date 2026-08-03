@@ -48,6 +48,8 @@ import {
 } from "./extensionInstances";
 import { forBlock } from "./generators/python";
 import { buildToolbox } from "./toolbox";
+import { registerTypedVariableCategory } from "./variableCategory";
+import { registerVariableBlocks, variableForBlock } from "./variableBlocks";
 import {
   addExtension,
   ensureCatalogLoaded,
@@ -198,6 +200,17 @@ const scheduleWorkspaceResize = () => {
     resizeWorkspace();
   });
 };
+
+const showToolbox = ref(true);
+const showGeneratedCode = ref(true);
+
+watch(showToolbox, (visible) => {
+  if (workspace) {
+    workspace.getToolbox()?.setVisible(visible);
+    workspace.getFlyout()?.setVisible(visible);
+    scheduleWorkspaceResize();
+  }
+});
 
 // --- Tab / opmode plumbing -------------------------------------------------
 
@@ -377,12 +390,18 @@ const persistProject = () => {
 
 const generateCode = () => {
   syncActiveTab();
-  const code = generateAllOpmodes(tabs.value);
-  generatedCode.value =
-    code.trim() || "# Add blocks to an OpMode to generate its Python class.";
-  generationStatus.value = code.trim()
-    ? "Python generated"
-    : "Waiting for blocks";
+  try {
+    const code = generateAllOpmodes(tabs.value);
+    generatedCode.value =
+      code.trim() || "# Add blocks to an OpMode to generate its Python class.";
+    generationStatus.value = code.trim()
+      ? "Python generated"
+      : "Waiting for blocks";
+  } catch (error) {
+    generatedCode.value = "Error generating code:\n" + (error as Error).stack;
+    generationStatus.value = "Error";
+    console.error(error);
+  }
 };
 
 const selectTab = (id: string) => {
@@ -876,13 +895,13 @@ const shortName = (className: string) => simpleName(className);
 // newly applied categories.
 type ContinuousToolboxLike = {
   getInitialFlyoutContents?: () => unknown;
-  getFlyout?: () => { show: (items: unknown) => void } | null;
+  getFlyout?: () => { show: (items: unknown) => void; isVisible: () => boolean } | null;
 };
 
 const refreshContinuousFlyout = (ws: Blockly.WorkspaceSvg) => {
   const tb = ws.getToolbox() as unknown as ContinuousToolboxLike | null;
   const flyout = tb?.getFlyout?.();
-  if (tb?.getInitialFlyoutContents && flyout) {
+  if (tb?.getInitialFlyoutContents && flyout?.isVisible()) {
     flyout.show(tb.getInitialFlyoutContents());
   }
 };
@@ -954,6 +973,9 @@ onMounted(() => {
   });
 
   registerExtensions(workspace, pythonGenerator, openExtensionPicker);
+  registerTypedVariableCategory(workspace);
+  registerVariableBlocks();
+  Object.assign(pythonGenerator.forBlock, variableForBlock);
 
   // Keep the modal mirror, the device dropdowns and the generated code in sync
   // whenever a motor is added/renamed/removed from the Motors modal.
@@ -1064,6 +1086,7 @@ onBeforeUnmount(() => {
   <UApp>
     <main
       class="flex h-screen min-w-[320px] flex-col overflow-hidden bg-slate-100 text-slate-950"
+      :class="{ 'hide-code-panel': !showGeneratedCode }"
     >
       <header
         class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 shadow-sm"
@@ -1083,6 +1106,24 @@ onBeforeUnmount(() => {
           <UBadge color="neutral" variant="soft" class="hidden sm:inline-flex">
             {{ generationStatus }}
           </UBadge>
+          <UTooltip text="Toggle blocks palette">
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="ghost"
+              :icon="showToolbox ? 'i-heroicons-swatch-solid' : 'i-heroicons-swatch'"
+              @click="showToolbox = !showToolbox"
+            />
+          </UTooltip>
+          <UTooltip text="Toggle generated code">
+            <UButton
+              size="sm"
+              color="neutral"
+              variant="ghost"
+              :icon="showGeneratedCode ? 'i-heroicons-code-bracket-square-solid' : 'i-heroicons-code-bracket-square'"
+              @click="showGeneratedCode = !showGeneratedCode"
+            />
+          </UTooltip>
           <UButton
             size="sm"
             color="neutral"
@@ -1200,9 +1241,7 @@ onBeforeUnmount(() => {
         </section>
         </UDashboardPanel>
 
-        <!-- Right panel: generated code. Fills whatever width the workspace
-             divider leaves; drag the divider between the two to resize. -->
-        <UDashboardPanel id="code" class="h-full min-h-0">
+        <UDashboardPanel v-if="showGeneratedCode" id="code" class="h-full min-h-0">
         <aside
           class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white"
           aria-label="Generated code and status"
