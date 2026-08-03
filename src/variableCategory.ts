@@ -1,4 +1,4 @@
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 
 export const SC_TYPED_VARIABLE_CATEGORY = 'SC_TYPED_VARIABLE';
 

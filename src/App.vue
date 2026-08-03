@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 import {registerContinuousToolbox} from '@blockly/continuous-toolbox';
 import {pythonGenerator} from 'blockly/python';
 import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
 import {createHighlighterCore, type HighlighterCore} from 'shiki/core';
-import {createJavaScriptRegexEngine} from 'shiki/engine/javascript';
-import pythonLang from 'shiki/langs/python.mjs';
+import {createJavaScriptRawEngine} from 'shiki/engine/javascript';
+import pythonLang from '@shikijs/langs-precompiled/python';
 import lightTheme from 'shiki/themes/material-theme-lighter.mjs';
 import {
   registerSystemCoreRenderer,
@@ -107,15 +107,17 @@ const generationStatus = ref('Ready');
 // fall back to the plain <pre><code> until the first pass resolves.
 const highlightedCode = ref('');
 
-// A single fine-grained Shiki highlighter, bundling only Python + one theme and
-// the JS regex engine (no WASM), created lazily on first use.
+// A single fine-grained Shiki highlighter, bundling only Python + one theme,
+// created lazily on first use. The grammar is precompiled to JavaScript regexes,
+// so the raw engine can run it directly: no WASM, and no Oniguruma-to-JS
+// translator in the bundle.
 let highlighterPromise: Promise<HighlighterCore> | null = null;
 const getHighlighter = () => {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighterCore({
       langs: [pythonLang],
       themes: [lightTheme],
-      engine: createJavaScriptRegexEngine(),
+      engine: createJavaScriptRawEngine(),
     });
   }
   return highlighterPromise;

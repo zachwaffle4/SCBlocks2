@@ -1,4 +1,4 @@
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 import {Order, type PythonGenerator} from 'blockly/python';
 
 const COLOUR = 230;

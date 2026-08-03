@@ -6,7 +6,7 @@
  * one workspace. This module handles the per-tab serialized state: creating a
  * fresh opmode, reading its display info, and generating Python for every tab.
  */
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 import {pythonGenerator} from 'blockly/python';
 import {
   generateMechanismDefinitions,

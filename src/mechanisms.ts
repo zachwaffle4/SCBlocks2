@@ -1,4 +1,4 @@
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 import {getDevice} from './devices';
 import type {WorkspaceState} from './opmodes';
 

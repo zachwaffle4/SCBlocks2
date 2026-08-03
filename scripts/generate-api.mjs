@@ -25,6 +25,9 @@ const inputPath = resolve(
   process.argv[2] || 'python_tools/generated/robotpy_data.json',
 );
 const outputPath = resolve(process.argv[3] || 'src/generated/robotpy-api.ts');
+// The data is emitted next to the types as JSON so the browser can fetch and
+// JSON.parse it instead of compiling a megabyte of object literals.
+const dataPath = outputPath.replace(/\.ts$/, '.json');
 
 const data = JSON.parse(readFileSync(inputPath, 'utf8'));
 
@@ -96,9 +99,9 @@ const modules = (data.modules || []).map((m) => ({
 const header = `// AUTO-GENERATED — do not edit by hand.
 // Regenerate with: npm run generate:api -- [path/to/robotpy_data.json]
 //
-// This is the escape-hatch RobotPy API catalog covering the full RobotPy scope.
-// It is projected from python_tools/generated/robotpy_data.json and imported
-// lazily (see src/extensions.ts) so none of it ships in the default toolbox.
+// Types only. The catalog data itself lives in robotpy-api.json, which is
+// fetched as a static asset on demand (see src/apiCatalog.ts) so the ~1.3 MB of
+// metadata never has to be parsed as JavaScript.
 
 export type ApiArg = {name: string; type: string; default: string};
 
@@ -143,11 +146,17 @@ export type ApiModule = {
 
 const source =
   header +
-  `export const ROBOTPY_MODULES: ApiModule[] = ${JSON.stringify(modules)};\n\n` +
-  `export const ROBOTPY_CLASSES: ApiClass[] = ${JSON.stringify(classes)};\n`;
+  `export type RobotpyCatalog = {\n` +
+  `  modules: ApiModule[];\n` +
+  `  classes: ApiClass[];\n` +
+  `};\n`;
+
+const catalogJson = JSON.stringify({modules, classes});
 
 writeFileSync(outputPath, source);
+writeFileSync(dataPath, catalogJson);
 console.log(
-  `Generated ${classes.length} classes and ${modules.length} modules in ${outputPath} ` +
-    `(${(source.length / 1024 / 1024).toFixed(2)} MB)`,
+  `Generated ${classes.length} classes and ${modules.length} modules:\n` +
+    `  ${outputPath} (types)\n` +
+    `  ${dataPath} (${(catalogJson.length / 1024 / 1024).toFixed(2)} MB of data)`,
 );

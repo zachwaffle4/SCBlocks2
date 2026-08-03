@@ -10,7 +10,7 @@
  * escape-hatch idea as the old A301-only advanced blocks, generalized to any
  * class in the generated catalog.
  */
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 import {Order, type PythonGenerator} from 'blockly/python';
 import {
   loadCatalog,

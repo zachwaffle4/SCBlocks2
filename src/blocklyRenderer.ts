@@ -1,4 +1,4 @@
-import * as Blockly from 'blockly';
+import * as Blockly from 'blockly/core';
 
 const RENDERER_NAME = 'systemcore_zelos';
 const SIDE_BY_SIDE_COMMAND_GROUPS = new Set([

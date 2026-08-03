@@ -1,13 +1,22 @@
 /**
  * Lazy accessor for the escape-hatch RobotPy API catalog.
  *
- * The generated catalog (src/generated/robotpy-api.ts) covers the full scope of
- * ../systemcore-blocks-interface — every class, module and enum. It is large and
- * is NOT part of the default toolbox, so we only import it on demand, the first
- * time the user opens the extensions picker. This keeps extensions behaving like
- * extensions: nothing is loaded until you ask for it.
+ * The generated catalog covers the full scope of ../systemcore-blocks-interface —
+ * every class, module and enum — and is NOT part of the default toolbox, so it is
+ * only loaded the first time the user opens the extensions picker.
+ *
+ * The ~1.3 MB of metadata lives in robotpy-api.json rather than in a TypeScript
+ * module: as a static asset the browser fetches it, caches it under a
+ * content-hashed URL, and hands it to the native JSON parser, instead of having
+ * to compile a megabyte of JavaScript object literals. Only the types come from
+ * the generated .ts file, so none of this costs anything at build time.
  */
-import type {ApiClass, ApiMethod, ApiModule} from './generated/robotpy-api';
+import type {
+  ApiClass,
+  ApiMethod,
+  ApiModule,
+  RobotpyCatalog,
+} from './generated/robotpy-api';
 
 export type {
   ApiArg,
@@ -26,18 +35,35 @@ type Catalog = {
 
 let catalogPromise: Promise<Catalog> | null = null;
 
+// Resolved lazily so the URL import only runs in the browser: the headless
+// smoke test compiles this module but never asks for the catalog.
+const fetchCatalog = async (): Promise<RobotpyCatalog> => {
+  const {default: url} = await import('./generated/robotpy-api.json?url');
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load the RobotPy API catalog: ${response.status} ${response.statusText}`,
+    );
+  }
+  return (await response.json()) as RobotpyCatalog;
+};
+
 export const loadCatalog = (): Promise<Catalog> => {
   if (!catalogPromise) {
-    catalogPromise = import('./generated/robotpy-api').then((mod) => {
+    catalogPromise = fetchCatalog().then((data) => {
       const classByName = new Map<string, ApiClass>();
-      for (const cls of mod.ROBOTPY_CLASSES) {
+      for (const cls of data.classes) {
         classByName.set(cls.className, cls);
       }
       return {
-        classes: mod.ROBOTPY_CLASSES,
-        modules: mod.ROBOTPY_MODULES,
+        classes: data.classes,
+        modules: data.modules,
         classByName,
       };
+    });
+    // A failed fetch should not poison the cache: let the next open retry.
+    catalogPromise.catch(() => {
+      catalogPromise = null;
     });
   }
   return catalogPromise;
