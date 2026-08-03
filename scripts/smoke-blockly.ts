@@ -137,11 +137,12 @@ connectStatement(deadlineBlock, 'DEADLINE', deadlineWait);
 connectStatement(deadlineBlock, 'OTHER', deadlineMotor);
 pythonGenerator.init(workspace);
 const deadlineCode = pythonGenerator.blockToCode(deadlineBlock);
-assertIncludes(
-  String(deadlineCode),
-  'ParallelDeadlineGroup(SequentialCommandGroup(WaitCommand(2)),',
-);
-assertIncludes(String(deadlineCode), 'SequentialCommandGroup(InstantCommand(self.block_');
+assertIncludes(String(deadlineCode), '@no_requirements("deadline_0")');
+assertIncludes(String(deadlineCode), 'await wait(2)');
+assertIncludes(String(deadlineCode), '@no_requirements("deadline_1")');
+assertIncludes(String(deadlineCode), 'self.drive_motor.set_throttle(');
+assertIncludes(String(deadlineCode), 'await Command.deadline(');
+assertIncludes(String(deadlineCode), ').with_automatic_name()');
 deadlineBlock.dispose(true);
 
 // ---------------------------------------------------------------------------
@@ -268,7 +269,7 @@ assert(
   Array.isArray(analogInputCode),
   'The analog input block should generate a value expression',
 );
-assertIncludes(analogInputCode[0], 'self.analog_input_3.getValue()');
+assertIncludes(analogInputCode[0], 'self.analog_input_3.get_value()');
 analogInput.dispose(true);
 
 const revStatusTrigger = workspace.newBlock('sc_trigger');
@@ -290,7 +291,7 @@ assert(
   Array.isArray(revColorCode),
   'The REV color sensor value block should generate a value expression',
 );
-assertIncludes(revColorCode[0], 'self.rev_color_sensor_mxp.getColor().red');
+assertIncludes(revColorCode[0], 'self.rev_color_sensor_mxp.get_color().red');
 revColorValue.dispose(true);
 
 const revColorTrigger = workspace.newBlock('sc_rev_color_sensor_color_trigger');
@@ -321,7 +322,7 @@ assert(
 );
 assertIncludes(
   revSeesColorCode[0],
-  'abs(self.rev_color_sensor_mxp.getColor().blue - 1) <= 0.25',
+  'abs(self.rev_color_sensor_mxp.get_color().blue - 1) <= 0.25',
 );
 revSeesColor.dispose(true);
 
@@ -364,22 +365,22 @@ assertIncludes(
 );
 assertIncludes(opmodeCode, 'self.digital_input_2.get()');
 assertIncludes(opmodeCode, 'self.encoder_0_1.reset()');
-assertIncludes(opmodeCode, 'self.rev_color_sensor_mxp.isConnected()');
+assertIncludes(opmodeCode, 'self.rev_color_sensor_mxp.is_connected()');
 assertIncludes(
   opmodeCode,
-  'abs(self.rev_color_sensor_mxp.getColor().green - 1) <= 0.25',
+  'abs(self.rev_color_sensor_mxp.get_color().green - 1) <= 0.25',
 );
 assertIncludes(
   opmodeCode,
-  'self.rev_color_sensor_mxp.getProximity() >= (250)',
+  'self.rev_color_sensor_mxp.get_proximity() >= (250)',
 );
 assertIncludes(opmodeCode, 'self.digital_input_4 = wpilib.DigitalInput(4)');
 assertIncludes(opmodeCode, 'Trigger(lambda: self.digital_input_4.get())');
-assertIncludes(opmodeCode, 'self.encoder_0_1.getRate() >= (5)');
+assertIncludes(opmodeCode, 'self.encoder_0_1.get_rate() >= (5)');
 assertIncludes(opmodeCode, 'self.main_command: Command | None = None');
 assertIncludes(opmodeCode, 'Scheduler.get_default().run()');
 assertIncludes(opmodeCode, 'self.gyro.reset()');
-assertIncludes(opmodeCode, 'Command.no_requirements().executing(self.block_');
+assertIncludes(opmodeCode, '    @no_requirements()\n    async def block_');
 assertIncludes(opmodeCode, 'self.main_command = Command.parallel(');
 assertIncludes(opmodeCode, 'Trigger(lambda:');
 assertIncludes(opmodeCode, 'trigger_1.while_true(');
@@ -416,7 +417,7 @@ connectNext(gamepadTrigger, gamepadStop);
 pythonGenerator.init(workspace);
 const gamepadCode = generateOpmodeClass(workspace, pythonGenerator);
 assertIncludes(gamepadCode, 'self.gamepad2 = wpilib.Gamepad(1)');
-assertIncludes(gamepadCode, 'self.gamepad2.getEastFaceButtonPressed()');
+assertIncludes(gamepadCode, 'self.gamepad2.get_face_right_button_pressed()');
 gamepadTrigger.dispose(true);
 
 // The gamepad category is Teleop-only: present when requested, absent from the
@@ -626,7 +627,7 @@ const migratedCode = generateAllOpmodes([
   {id: 'stale-sensor', state: staleSensorConditionState},
 ]);
 assertIncludes(migratedCode, 'Trigger(lambda:');
-assertIncludes(migratedCode, 'self.drive_motor.getEncoderVelocity().get() > 0');
+assertIncludes(migratedCode, 'self.drive_motor.get_encoder_velocity().get() > 0');
 
 // ---------------------------------------------------------------------------
 // Drivetrain wrappers: one set-movement-motors block owns the motor choices,
@@ -664,9 +665,9 @@ pythonGenerator.init(drivetrainWorkspace);
 const drivetrainCode = generateOpmodeClass(drivetrainWorkspace, pythonGenerator);
 assertIncludes(drivetrainCode, 'self.right_motor = A301(2, 4)');
 assertIncludes(drivetrainCode, 'self.movement_drive = wpilib.DifferentialDrive(');
-assertIncludes(drivetrainCode, 'lambda output: self.drive_motor.setThrottle(output),');
-assertIncludes(drivetrainCode, 'lambda output: self.right_motor.setThrottle(output),');
-assertIncludes(drivetrainCode, 'self.movement_drive.arcadeDrive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (15) / 100.0)))');
+assertIncludes(drivetrainCode, 'lambda output: self.drive_motor.set_throttle(output),');
+assertIncludes(drivetrainCode, 'lambda output: self.right_motor.set_throttle(output),');
+assertIncludes(drivetrainCode, 'self.movement_drive.arcade_drive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (15) / 100.0)))');
 
 movementMotors.setFieldValue(
   serializeMovementMotorsConfig({
@@ -691,10 +692,10 @@ assertIncludes(mecanumCode, 'self.rear_left_motor = A301(3, 5)');
 assertIncludes(mecanumCode, 'self.front_right_motor = A301(4, 6)');
 assertIncludes(mecanumCode, 'self.rear_right_motor = A301(5, 7)');
 assertIncludes(mecanumCode, 'self.movement_drive = wpilib.MecanumDrive(');
-assertIncludes(mecanumCode, 'lambda output: self.rear_left_motor.setThrottle(output),');
-assertIncludes(mecanumCode, 'lambda output: self.front_right_motor.setThrottle(output),');
-assertIncludes(mecanumCode, 'lambda output: self.rear_right_motor.setThrottle(output),');
-assertIncludes(mecanumCode, 'self.movement_drive.driveCartesian(max(-1, min(1, (10) / 100.0)), max(-1, min(1, (20) / 100.0)), max(-1, min(1, (5) / 100.0)))');
+assertIncludes(mecanumCode, 'lambda output: self.rear_left_motor.set_throttle(output),');
+assertIncludes(mecanumCode, 'lambda output: self.front_right_motor.set_throttle(output),');
+assertIncludes(mecanumCode, 'lambda output: self.rear_right_motor.set_throttle(output),');
+assertIncludes(mecanumCode, 'self.movement_drive.drive_cartesian(max(-1, min(1, (10) / 100.0)), max(-1, min(1, (20) / 100.0)), max(-1, min(1, (5) / 100.0)))');
 drivetrainWorkspace.dispose();
 
 const motionCategory = toolbox.contents.find(
@@ -777,7 +778,7 @@ const matchTime = wpilibExtrasWorkspace.newBlock('sc_wpilib_match_time');
 pythonGenerator.init(wpilibExtrasWorkspace);
 const matchTimeCode = pythonGenerator.blockToCode(matchTime);
 assert(Array.isArray(matchTimeCode), 'Match time should be a value expression');
-assertIncludes(matchTimeCode[0], 'wpilib.Timer.getMatchTime()');
+assertIncludes(matchTimeCode[0], 'wpilib.Timer.get_match_time()');
 matchTime.dispose(true);
 
 const dashboardGet = wpilibExtrasWorkspace.newBlock('sc_wpilib_smartdashboard_get');
@@ -785,7 +786,7 @@ dashboardGet.setFieldValue('target', 'KEY');
 pythonGenerator.init(wpilibExtrasWorkspace);
 const dashboardGetCode = pythonGenerator.blockToCode(dashboardGet);
 assert(Array.isArray(dashboardGetCode), 'Dashboard get should be a value expression');
-assertIncludes(dashboardGetCode[0], 'wpilib.SmartDashboard.getNumber("target", 0)');
+assertIncludes(dashboardGetCode[0], 'wpilib.SmartDashboard.get_number("target", 0)');
 dashboardGet.dispose(true);
 
 pythonGenerator.init(wpilibExtrasWorkspace);
@@ -795,9 +796,9 @@ assertIncludes(
   'self.imu = wpilib.OnboardIMU(wpilib.OnboardIMU.MountOrientation.FLAT)',
 );
 assertIncludes(extrasCode, 'self.digital_output_2 = wpilib.DigitalOutput(2)');
-assertIncludes(extrasCode, 'Trigger(lambda: math.degrees(self.imu.getYaw()) >= (90))');
-assertIncludes(extrasCode, 'self.imu.reset()');
-assertIncludes(extrasCode, 'wpilib.SmartDashboard.putNumber("heading", math.degrees(self.imu.getYaw()))');
+assertIncludes(extrasCode, 'Trigger(lambda: math.degrees(self.imu.get_yaw()) >= (90))');
+assertIncludes(extrasCode, 'self.imu.reset_yaw()');
+assertIncludes(extrasCode, 'wpilib.SmartDashboard.put_number("heading", math.degrees(self.imu.get_yaw()))');
 assertIncludes(extrasCode, 'self.digital_output_2.set(True)');
 
 // The IMU is a singleton: exactly one OnboardIMU construction even though three
@@ -891,7 +892,6 @@ const restartTimer = subsystemWorkspace.newBlock('sc_ext_instance_call');
 restartTimer.setFieldValue('wpilib.Timer', 'CLASS');
 restartTimer.setFieldValue(intakeTimer.id, 'INSTANCE');
 restartTimer.setFieldValue('restart', 'METHOD');
-restartTimer.setFieldValue('', 'ARGS');
 connectNext(subsystemCommand, waitForPiece);
 waitForPiece.nextConnection!.connect(subsystemPower.previousConnection!);
 subsystemPower.nextConnection!.connect(restartTimer.previousConnection!);
@@ -926,13 +926,26 @@ assertIncludes(mechanismFile, 'self.digital_input_0 = resource_digital_input_0')
 assertIncludes(mechanismFile, 'self.intake_timer = resource_intake_timer');
 assertIncludes(mechanismFile, 'def on_start(self):');
 assertIncludes(mechanismFile, 'def command_intake_piece(self):');
-assertIncludes(mechanismFile, 'def set_motor_group_power(self, motors, power):');
-assertIncludes(mechanismFile, 'for _motor in (self.drive_motor, self.right_motor):');
-assertIncludes(mechanismFile, '_motor.setThrottle(max(-1, min(1, (65) / 100.0)))');
-assertIncludes(mechanismFile, 'for _motor in (self.drive_motor, self.right_motor):');
-assertIncludes(mechanismFile, '_motor.setThrottle(0)');
-assertIncludes(mechanismFile, 'self.drive_motor.setThrottle(max(-1, min(1, (40) / 100.0)))');
-assertIncludes(mechanismFile, 'self.movement_drive.arcadeDrive(max(-1, min(1, (30) / 100.0)), max(-1, min(1, (5) / 100.0)))');
+// Owned motors get a set_power/stop pair over the subsystem's motor list, and
+// the event bodies drive the motors they name directly.
+assertIncludes(mechanismFile, 'def set_power(self, power):');
+assertIncludes(mechanismFile, 'for motor in self._motors:');
+assertIncludes(mechanismFile, 'motor.set_throttle(power)');
+assertIncludes(mechanismFile, 'def stop(self):');
+assertIncludes(mechanismFile, 'self.set_power(0)');
+assertIncludes(
+  mechanismFile,
+  'self.drive_motor.set_throttle(max(-1, min(1, (15) / 100.0)))',
+);
+assertIncludes(
+  mechanismFile,
+  'self.drive_motor.set_throttle(max(-1, min(1, (65) / 100.0)))',
+);
+assertIncludes(
+  mechanismFile,
+  'await wait_until(lambda: self.digital_input_0.get())',
+);
+assertIncludes(mechanismFile, 'self.intake_timer.restart()');
 const advancedToolbox = JSON.stringify(
   buildToolbox({includeGamepad: false, robotMode: 'advanced'}),
 );
@@ -982,22 +995,8 @@ mechanismWorkspace.dispose();
 setMechanisms([]);
 setRobotMode('simple');
 
-// In Simple mode, the same explicit group compiles to a readable method with a
-// loop, instead of relying on a hidden subsystem-wide motor selection.
-const motorGroupWorkspace = new Blockly.Workspace();
-const motorGroupDetails = motorGroupWorkspace.newBlock('sc_opmode_details');
-motorGroupDetails.setFieldValue('Motor Group Test', 'NAME');
-const motorGroupStart = motorGroupWorkspace.newBlock('sc_on_start');
-const motorGroupPower = motorGroupWorkspace.newBlock('sc_motor_group_set_power');
-connectValue(motorGroupPower, 'GROUP', makeMotorGroup(motorGroupWorkspace));
-connectValue(motorGroupPower, 'POWER', numberBlock(70, motorGroupWorkspace));
-connectNext(motorGroupStart, motorGroupPower);
-pythonGenerator.init(motorGroupWorkspace);
-const motorGroupCode = generateOpmodeClass(motorGroupWorkspace, pythonGenerator);
-assertIncludes(motorGroupCode, 'def block_on_start(self):');
-assertIncludes(motorGroupCode, 'for _motor in (self.drive_motor, self.right_motor):');
-assertIncludes(motorGroupCode, '_motor.setThrottle(max(-1, min(1, (70) / 100.0))');
-motorGroupWorkspace.dispose();
+// Motor groups are gone: they only exist as legacy saved data, and the
+// migration coverage for them lives with the other migration checks above.
 
 // ---------------------------------------------------------------------------
 // Advanced libraries: named project objects replace the old free-text target.
@@ -1032,7 +1031,7 @@ const extensionFile = generateAllOpmodes([
   {id: 'library-test', state: Blockly.serialization.workspaces.save(extensionWorkspace)},
 ]);
 assertIncludes(extensionFile, 'import wpilib');
-assertIncludes(extensionFile, 'Command.no_requirements().executing(self.block_on_start)');
+assertIncludes(extensionFile, 'async def block_on_start(self):');
 extensionWorkspace.dispose();
 setExtensionInstances([]);
 
