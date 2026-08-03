@@ -15,6 +15,12 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 
+import {
+  attributeName,
+  screamingSnakeCase,
+  snakeCase,
+} from './python-naming.mjs';
+
 const inputPath = resolve(
   process.argv[2] || 'python_tools/generated/robotpy_data.json',
 );
@@ -29,13 +35,15 @@ const firstTooltipLine = (tooltip = '') =>
     .find(Boolean) || '';
 
 const mapArg = (arg) => ({
-  name: arg.name,
+  name: snakeCase(arg.name),
   type: arg.type || '',
   default: arg.defaultValue || '',
 });
 
+// Method, argument, and attribute names are lowered to post4 snake_case; class
+// and enum names keep their CamelCase
 const mapMethod = (method) => ({
-  name: method.functionName,
+  name: snakeCase(method.functionName),
   returnType: method.returnType || '',
   args: (method.args || []).filter((arg) => arg.name !== 'self').map(mapArg),
   common: Boolean(method.isCommon),
@@ -43,16 +51,26 @@ const mapMethod = (method) => ({
 });
 
 const mapVar = (v) => ({
-  name: v.name,
+  name: attributeName(v.name),
   type: v.type || '',
   writable: Boolean(v.writable),
   common: Boolean(v.isCommon),
   tooltip: firstTooltipLine(v.tooltip),
 });
 
+// Class-level values are constants, so they follow the enum styling:
+// kDefaultXChannel -> DEFAULT_X_CHANNEL, NumMotorPorts -> NUM_MOTOR_PORTS.
+// Instance attributes and module variables stay snake_case (post4 turned
+// wpimath.units.kInchesPerFoot into inches_per_foot, not INCHES_PER_FOOT).
+const mapConstant = (v) => ({
+  ...mapVar(v),
+  name: screamingSnakeCase(v.name),
+});
+
+// The enum class keeps its CamelCase name; its values become SCREAMING_SNAKE.
 const mapEnum = (e) => ({
   name: e.enumClassName,
-  values: e.enumValues || [],
+  values: (e.enumValues || []).map(screamingSnakeCase),
   tooltip: firstTooltipLine(e.tooltip),
 });
 
@@ -64,7 +82,7 @@ const classes = (data.classes || []).map((c) => ({
   instanceMethods: (c.instanceMethods || []).map(mapMethod),
   staticMethods: (c.staticMethods || []).map(mapMethod),
   instanceVariables: (c.instanceVariables || []).map(mapVar),
-  classVariables: (c.classVariables || []).map(mapVar),
+  classVariables: (c.classVariables || []).map(mapConstant),
   enums: (c.enums || []).map(mapEnum),
 }));
 

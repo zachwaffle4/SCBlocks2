@@ -7,6 +7,8 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 
+import {snakeCase} from './python-naming.mjs';
+
 const inputPath = resolve(
   process.argv[2] || 'python_tools/generated/robotpy_data.json',
 );
@@ -41,14 +43,16 @@ const methodId = (method, seen) => {
 };
 
 const seenIds = new Set();
+// `name` is the post4 snake_case name that lands in generated Python; `id` stays
+// the raw CamelCase name so METHOD field values in saved projects still resolve.
 const methods = a301Class.instanceMethods.map((method) => ({
   id: methodId(method, seenIds),
-  name: method.functionName,
+  name: snakeCase(method.functionName),
   returnType: method.returnType || '',
   args: (method.args || [])
     .filter((arg) => arg.name !== 'self')
     .map((arg) => ({
-      name: arg.name,
+      name: snakeCase(arg.name),
       type: arg.type || '',
       defaultValue: arg.defaultValue || '',
     })),

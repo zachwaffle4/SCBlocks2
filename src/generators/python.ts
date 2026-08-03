@@ -6,6 +6,7 @@
 
 import * as Blockly from 'blockly/core';
 import {Order, pythonGenerator, type PythonGenerator} from 'blockly/python';
+import {varTypeAnnotation, varDefaultValue} from '../variableCategory';
 import {getA301Method} from '../generated/a301';
 import {
   getDevice,
@@ -21,6 +22,7 @@ import {
   type Mechanism,
 } from '../mechanisms';
 import {getRobotMode} from '../robotMode';
+import {snakeCase} from '../pythonNaming';
 import {
   getExtensionInstances,
   type ExtensionInstance,
@@ -180,7 +182,7 @@ const registerBlockMethod = (statement: string, baseName = 'block'): string => {
 
   const name = count > 1 ? `${cleanBaseName}_${count}` : cleanBaseName;
 
-  blockMethodBodies.push(`    async def ${name}(self):\n${indentCode(statement.trim() ? statement : 'pass\n', 8)}`);
+  blockMethodBodies.push(`    @no_requirements()\n    async def ${name}(self):\n${indentCode(statement.trim() ? statement : 'pass\n', 8)}`);
   return `self.${name}`;
 };
 
@@ -195,7 +197,7 @@ export const instantCommandExpr = (
   if (generatingSubsystemCommand) {
     return `_run_instant(lambda: ${pythonCall}, ${requirement || 'self'})`;
   }
-  return `Command.no_requirements().executing(${registerBlockMethod(pythonCall + '\n')})`;
+  return registerBlockMethod(pythonCall + '\n');
 };
 
 const instantCommand = (pythonCall: string) =>
@@ -228,8 +230,8 @@ const commandLinesForNext = (
 
 const commandGroupExpression = (commands: string[], name?: string) =>
   commands.length
-    ? `Command.no_requirements().executing(${commands[0]}).named(${name ? `"${name.replace(/"/g, '\\"')}"` : `"${commands[0]}"`})`
-    : `Command.no_requirements().executing(lambda: None).named("empty")`;
+    ? commands[0]
+    : `no_requirements("empty")(lambda: None)`;
 
 const isSetupControlFlow = (block: Blockly.Block) =>
   block.getRootBlock().type === 'sc_on_setup';
@@ -280,13 +282,13 @@ const conditionalCommandExpression = (
 
 const mainCommandExpression = (commands: string[]) => {
   if (!commands.length) {
-    return `Command.no_requirements().executing(lambda: None).named("main")`;
+    return `no_requirements("main")(lambda: None)`;
   }
-  return `Command.no_requirements().executing(${commands[0]}).named("main")`;
+  return commands[0];
 };
 
 const startCommandExpression = (commandStacks: string[][]) => {
-  if (!commandStacks.length) return `Command.no_requirements().executing(lambda: None).named("start")`;
+  if (!commandStacks.length) return `no_requirements("start")(lambda: None)`;
   if (commandStacks.length === 1) return mainCommandExpression(commandStacks[0]);
 
   const inner = commandStacks
@@ -427,6 +429,7 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
   const commandStacks = new Map<string, string[]>();
   let startCommands: string[] = [];
   let drivetrain: DrivetrainConfig | null = null;
+  let varInitLines: string[] = [];
   const previousGeneratingSubsystemCommand = generatingSubsystemCommand;
   generatingSubsystemCommand = true;
   try {
@@ -434,6 +437,12 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
     pythonGenerator.init(workspace);
     if (movementDriveNeeded(workspace)) {
       drivetrain = movementDrivetrainConfig(workspace);
+    }
+    for (const proc of workspace.getBlocksByType('procedures_defnoreturn', false)) {
+      pythonGenerator.blockToCode(proc);
+    }
+    for (const proc of workspace.getBlocksByType('procedures_defreturn', false)) {
+      pythonGenerator.blockToCode(proc);
     }
     for (const hat of workspace.getBlocksByType('sc_subsystem_on_start', false)) {
       startCommands.push(...commandLinesForNext(hat, pythonGenerator, 'on_start'));
@@ -444,6 +453,16 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
         commandStacks.set(command, commandLinesForNext(hat, pythonGenerator, command));
       }
     }
+    const variables = workspace.getVariableMap().getAllVariables();
+    varInitLines = variables.map((v) => {
+      const varName = pythonGenerator.getVariableName(v.getId());
+      const annotation = varTypeAnnotation(v.getType());
+      const defaultVal = varDefaultValue(v.getType());
+      if (annotation !== null) {
+        return `        self.${varName}: ${annotation} = ${defaultVal}`;
+      }
+      return `        self.${varName} = ${defaultVal}`;
+    });
     const definitions = (pythonGenerator as unknown as GeneratorDefinitions)
       .definitions_;
     for (const key of Object.keys(definitions)) {
@@ -455,7 +474,7 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
     generatingSubsystemCommand = previousGeneratingSubsystemCommand;
     workspace.dispose();
   }
-  return {startCommands, commandStacks, drivetrain};
+  return {startCommands, commandStacks, drivetrain, varInitLines};
 };
 
 /**
@@ -476,6 +495,7 @@ export const generateMechanismDefinitions = () => {
     const motorReferences = motors.map(
       (motor) => `self.${safePythonIdentifier(motor.name, 'motor')}`,
     );
+
     definitions.push(
       `class ${mechanismClassName(names.get(mechanism.id) || mechanism.name)}(Mechanism):`,
       `    def __init__(self${bindings.map(({parameter}) => `, ${parameter}`).join('')}):`,
@@ -489,10 +509,11 @@ export const generateMechanismDefinitions = () => {
       ),
       `        self._motors = [${motorReferences.join(', ')}]`,
       ...(events.drivetrain ? drivetrainInitLines(events.drivetrain) : []),
+      ...events.varInitLines,
       '',
       '    def set_power(self, power):',
       '        for motor in self._motors:',
-      '            motor.setThrottle(power)',
+      '            motor.set_throttle(power)',
       '',
       '    def stop(self):',
       '        self.set_power(0)',
@@ -625,7 +646,7 @@ const movementDrivetrainConfig = (
 
 const drivetrainInitLines = (config: DrivetrainConfig) => {
   const motorSetter = (motorName: string) =>
-    `lambda output: self.${motorName}.setThrottle(output)`;
+    `lambda output: self.${motorName}.set_throttle(output)`;
 
   if (config.kind === 'differential') {
     const [leftMotor, rightMotor] = config.motorNames;
@@ -659,6 +680,19 @@ const gamepadPort = (gamepad: string) => (gamepad === '2' ? '1' : '0');
 const gamepadReference = (block: Blockly.Block) =>
   `self.gamepad${gamepadNumber(block)}`;
 
+// post4 also renamed the compass-point face buttons to directions:
+// getSouthFaceButton() -> get_face_down_button(). Saved projects still store the
+// old stems as BUTTON field values, so translate here instead of migrating.
+const GAMEPAD_FACE_BUTTONS: Record<string, string> = {
+  EastFace: 'face_right',
+  NorthFace: 'face_up',
+  SouthFace: 'face_down',
+  WestFace: 'face_left',
+};
+
+const gamepadButtonStem = (button: string) =>
+  GAMEPAD_FACE_BUTTONS[button] || snakeCase(button);
+
 const gamepadsInWorkspace = (workspace: Blockly.Workspace) => {
   const gamepads = new Set<string>();
   for (const type of GAMEPAD_BLOCK_TYPES) {
@@ -689,7 +723,7 @@ const analogInputReference = (block: Blockly.Block) =>
 // wpilib.AnalogInput getter for the block's READING field. Shared by the value
 // read block and the analog-input trigger.
 const analogInputMethod = (block: Blockly.Block) =>
-  block.getFieldValue('READING') === 'VALUE' ? 'getValue' : 'getVoltage';
+  block.getFieldValue('READING') === 'VALUE' ? 'get_value' : 'get_voltage';
 
 const encoderChannels = (block: Blockly.Block) =>
   [
@@ -704,7 +738,11 @@ const encoderReference = (block: Blockly.Block) =>
 // block and the encoder trigger.
 const encoderMethod = (block: Blockly.Block) => {
   const reading = block.getFieldValue('READING');
-  return reading === 'RATE' ? 'getRate' : reading === 'COUNT' ? 'get' : 'getDistance';
+  return reading === 'RATE'
+    ? 'get_rate'
+    : reading === 'COUNT'
+      ? 'get'
+      : 'get_distance';
 };
 
 const dutyCycleEncoderReference = (block: Blockly.Block) =>
@@ -726,7 +764,7 @@ const IMU_REFERENCE = 'self.imu';
 // value read block and the heading trigger.
 const imuHeadingDegrees = (generator: PythonGenerator) => {
   registerPythonImport(generator, 'math');
-  return `math.degrees(${IMU_REFERENCE}.getYaw())`;
+  return `math.degrees(${IMU_REFERENCE}.get_yaw())`;
 };
 
 const digitalOutputReference = (block: Blockly.Block) =>
@@ -778,9 +816,9 @@ const revColorSensorSeesColorExpression = (block: Blockly.Block) => {
   const target = hexColorToRgb(block.getFieldValue('COLOR'));
   const tolerance = '0.25';
   return [
-    `abs(${sensor}.getColor().red - ${target.red}) <= ${tolerance}`,
-    `abs(${sensor}.getColor().green - ${target.green}) <= ${tolerance}`,
-    `abs(${sensor}.getColor().blue - ${target.blue}) <= ${tolerance}`,
+    `abs(${sensor}.get_color().red - ${target.red}) <= ${tolerance}`,
+    `abs(${sensor}.get_color().green - ${target.green}) <= ${tolerance}`,
+    `abs(${sensor}.get_color().blue - ${target.blue}) <= ${tolerance}`,
   ].join(' and ');
 };
 
@@ -950,7 +988,7 @@ const triggerConditionExpression = (
   }
   if (trigger.type === 'sc_rev_color_sensor_proximity_trigger') {
     const threshold = valueToCode(trigger, generator, 'THRESHOLD', '200');
-    return `${revColorSensorReference(trigger)}.getProximity() >= (${threshold})`;
+    return `${revColorSensorReference(trigger)}.get_proximity() >= (${threshold})`;
   }
   if (trigger.type === 'sc_wpilib_digital_input_trigger') {
     return `${digitalInputReference(trigger)}.get()`;
@@ -981,6 +1019,12 @@ export const generateOpmodeClass = (
   generator: PythonGenerator,
 ): string => {
   resetBlockMethods();
+  for (const proc of workspace.getBlocksByType('procedures_defnoreturn', false)) {
+    generator.blockToCode(proc);
+  }
+  for (const proc of workspace.getBlocksByType('procedures_defreturn', false)) {
+    generator.blockToCode(proc);
+  }
   const details = workspace.getBlocksByType('sc_opmode_details', false)[0];
   const type = details?.getFieldValue('TYPE') || 'Teleop';
   const enabled = details ? details.getFieldValue('ENABLED') === 'TRUE' : true;
@@ -1066,19 +1110,43 @@ export const generateOpmodeClass = (
   if (advancedMechanisms.length) {
     const mechanismNames = mechanismPythonNames();
     for (const mechanism of advancedMechanisms) {
-      const name = mechanismNames.get(mechanism.id) || 'mechanism';
-      const bindings = mechanismBindings.get(mechanism.id) || [];
-      initBody.push(
-        `        self.${name} = ${mechanismClassName(name)}(${bindings.map(({target}) => `self.${target}`).join(', ')})`,
-      );
-      // Each subsystem's "when this subsystem starts" event runs beside the
-      // OpMode's own start hats, just like separate Scratch event scripts.
-      startCommandStacks.push([`self.${name}.on_start()`]);
+      try {
+        const name = mechanismNames.get(mechanism.id) || 'mechanism';
+        const bindings = mechanismBindings.get(mechanism.id) || [];
+        initBody.push(
+          `        self.${name} = ${mechanismClassName(name)}(${bindings.map(({target}) => `self.${target}`).join(', ')})`,
+        );
+        // Each subsystem's "when this subsystem starts" event runs beside the
+        // OpMode's own start hats, just like separate Scratch event scripts.
+        startCommandStacks.push([`self.${name}.on_start()`]);
+      } catch (e) {
+        throw new Error(`Crash generating subsystem instantiation for ${mechanism?.id}: ` + (e as Error).message);
+      }
     }
   }
   if (movementDriveNeeded(workspace)) {
     initBody.push(...drivetrainInitLines(movementDrivetrainConfig(workspace)));
   }
+
+  const variables = workspace.getVariableMap().getAllVariables();
+  if (variables.length) {
+    initBody.push('');
+    for (const variable of variables) {
+      try {
+        const varName = generator.getVariableName(variable.getId());
+        const annotation = varTypeAnnotation(variable.getType());
+        const defaultVal = varDefaultValue(variable.getType());
+        if (annotation !== null) {
+          initBody.push(`        self.${varName}: ${annotation} = ${defaultVal}`);
+        } else {
+          initBody.push(`        self.${varName} = ${defaultVal}`);
+        }
+      } catch (e) {
+        throw new Error(`Crash generating variable init for ${variable?.getName()}: ` + (e as Error).message);
+      }
+    }
+  }
+
   if (setupCode) initBody.push(indentCode(setupCode, 8));
   initBody.push('        self.main_command: Command | None = None');
 
@@ -1123,21 +1191,21 @@ forBlock['sc_motor_set_power'] = function (
   generator: PythonGenerator,
 ) {
   const power = valueToCode(block, generator, 'POWER', '0');
-  return `${deviceReference(block, generator)}.setThrottle(${percentToThrottle(power)})\n`;
+  return `${deviceReference(block, generator)}.set_throttle(${percentToThrottle(power)})\n`;
 };
 
 forBlock['sc_motor_run_for_seconds'] = function (block: Blockly.Block, generator: PythonGenerator) {
   const motor = deviceReference(block, generator);
   const power = valueToCode(block, generator, 'POWER', '50');
   const seconds = valueToCode(block, generator, 'SECONDS', '1');
-  return `${motor}.setThrottle(${percentToThrottle(power)})\nawait wait(${seconds})\n${motor}.setThrottle(0)\n`;
+  return `${motor}.set_throttle(${percentToThrottle(power)})\nawait wait(${seconds})\n${motor}.set_throttle(0)\n`;
 };
 
 forBlock['sc_motor_stop'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  return `${deviceReference(block, generator)}.setThrottle(0)\n`;
+  return `${deviceReference(block, generator)}.set_throttle(0)\n`;
 };
 
 forBlock['sc_motor_set_velocity'] = function (
@@ -1145,7 +1213,7 @@ forBlock['sc_motor_set_velocity'] = function (
   generator: PythonGenerator,
 ) {
   const velocity = valueToCode(block, generator, 'VELOCITY', '0');
-  return `${deviceReference(block, generator)}.setVelocity(${velocity})\n`;
+  return `${deviceReference(block, generator)}.set_velocity(${velocity})\n`;
 };
 
 forBlock['sc_motor_set_position'] = function (
@@ -1153,36 +1221,12 @@ forBlock['sc_motor_set_position'] = function (
   generator: PythonGenerator,
 ) {
   const position = valueToCode(block, generator, 'POSITION', '0');
-  return `${deviceReference(block, generator)}.setPosition(${position})\n`;
+  return `${deviceReference(block, generator)}.set_position(${position})\n`;
 };
 
-forBlock['sc_motor_group'] = function (block: Blockly.Block) {
-  return [motorGroupExpression(block), Order.ATOMIC];
-};
-
-const motorGroupPowerCommand = (
-  block: Blockly.Block,
-  generator: PythonGenerator,
-  power: string,
-) => {
-  const group = valueToCode(block, generator, 'GROUP', '()');
-  return `for _motor in ${group}:\n    _motor.setThrottle(${power})\n`;
-};
-
-forBlock['sc_motor_group_set_power'] = function (
-  block: Blockly.Block,
-  generator: PythonGenerator,
-) {
-  const power = valueToCode(block, generator, 'POWER', '0');
-  return motorGroupPowerCommand(block, generator, percentToThrottle(power));
-};
-
-forBlock['sc_motor_group_stop'] = function (
-  block: Blockly.Block,
-  generator: PythonGenerator,
-) {
-  return motorGroupPowerCommand(block, generator, '0');
-};
+// The sc_motor_group* blocks were retired: migrateSerializedBlock() in
+// opmodes.ts rewrites saved ones into per-motor commands, so no generator is
+// needed (and none of them are in the toolbox any more).
 
 forBlock['sc_mechanism_set_power'] = function (
   block: Blockly.Block,
@@ -1207,7 +1251,7 @@ forBlock['sc_mechanism_run_command'] = function (block: Blockly.Block) {
   const command = (block.getFieldValue('COMMAND') || '').trim();
   if (!mechanism || !command) return '';
   const name = mechanismPythonNames().get(mechanism.id) || 'mechanism';
-  return `self.${name}.${subsystemCommandMethodName(command)}()\n`;
+  return `await self.${name}.${subsystemCommandMethodName(command)}()\n`;
 };
 
 forBlock['sc_drivetrain_arcade_drive'] = function (
@@ -1216,7 +1260,7 @@ forBlock['sc_drivetrain_arcade_drive'] = function (
 ) {
   const forward = valueToCode(block, generator, 'FORWARD', '0');
   const turn = valueToCode(block, generator, 'TURN', '0');
-  return `${movementDriveReference()}.arcadeDrive(${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
+  return `${movementDriveReference()}.arcade_drive(${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
 };
 
 forBlock['sc_drivetrain_tank_drive'] = function (
@@ -1225,11 +1269,11 @@ forBlock['sc_drivetrain_tank_drive'] = function (
 ) {
   const leftPower = valueToCode(block, generator, 'LEFT_POWER', '0');
   const rightPower = valueToCode(block, generator, 'RIGHT_POWER', '0');
-  return `${movementDriveReference()}.tankDrive(${percentToThrottle(leftPower)}, ${percentToThrottle(rightPower)})\n`;
+  return `${movementDriveReference()}.tank_drive(${percentToThrottle(leftPower)}, ${percentToThrottle(rightPower)})\n`;
 };
 
 forBlock['sc_drivetrain_stop'] = function (block: Blockly.Block) {
-  return `${movementDriveReference()}.stop()\n`;
+  return `${movementDriveReference()}.stop_motor()\n`;
 };
 
 forBlock['sc_mecanum_drive'] = function (
@@ -1239,11 +1283,11 @@ forBlock['sc_mecanum_drive'] = function (
   const sideways = valueToCode(block, generator, 'SIDEWAYS', '0');
   const forward = valueToCode(block, generator, 'FORWARD', '0');
   const turn = valueToCode(block, generator, 'TURN', '0');
-  return `${movementDriveReference()}.driveCartesian(${percentToThrottle(sideways)}, ${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
+  return `${movementDriveReference()}.drive_cartesian(${percentToThrottle(sideways)}, ${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
 };
 
 forBlock['sc_mecanum_stop'] = function (block: Blockly.Block) {
-  return `${movementDriveReference()}.stop()\n`;
+  return `${movementDriveReference()}.stop_motor()\n`;
 };
 
 forBlock['sc_wait_seconds'] = function (
@@ -1279,7 +1323,7 @@ forBlock['sc_parallel_commands'] = function (
   const firstCommands = generator.statementToCode(block, 'FIRST') || `${generator.INDENT}pass\n`;
   const secondCommands = generator.statementToCode(block, 'SECOND') || `${generator.INDENT}pass\n`;
   const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
-  return `async def _parallel_${id}_0():\n${firstCommands}async def _parallel_${id}_1():\n${secondCommands}await await_all([Command.no_requirements().executing(_parallel_${id}_0).named("parallel_0"), Command.no_requirements().executing(_parallel_${id}_1).named("parallel_1")])\n`;
+  return `@no_requirements("parallel_0")\nasync def _parallel_${id}_0():\n${firstCommands}@no_requirements("parallel_1")\nasync def _parallel_${id}_1():\n${secondCommands}await Command.parallel(_parallel_${id}_0, _parallel_${id}_1).with_automatic_name()\n`;
 };
 
 forBlock['sc_race_commands'] = function (
@@ -1289,20 +1333,17 @@ forBlock['sc_race_commands'] = function (
   const firstCommands = generator.statementToCode(block, 'FIRST') || `${generator.INDENT}pass\n`;
   const secondCommands = generator.statementToCode(block, 'SECOND') || `${generator.INDENT}pass\n`;
   const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
-  return `async def _race_${id}_0():\n${firstCommands}async def _race_${id}_1():\n${secondCommands}await await_any([Command.no_requirements().executing(_race_${id}_0).named("race_0"), Command.no_requirements().executing(_race_${id}_1).named("race_1")])\n`;
+  return `@no_requirements("race_0")\nasync def _race_${id}_0():\n${firstCommands}@no_requirements("race_1")\nasync def _race_${id}_1():\n${secondCommands}await Command.race(_race_${id}_0, _race_${id}_1).with_automatic_name()\n`;
 };
 
 forBlock['sc_deadline_commands'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const deadlineCommands = commandLinesForStatement(
-    block,
-    generator,
-    'DEADLINE',
-  );
-  const otherCommands = commandLinesForStatement(block, generator, 'OTHER');
-  return `ParallelDeadlineGroup(${commandGroupExpression(deadlineCommands)}, ${commandGroupExpression(otherCommands)}),\n`;
+  const firstCommands = generator.statementToCode(block, 'DEADLINE') || `${generator.INDENT}pass\n`;
+  const secondCommands = generator.statementToCode(block, 'OTHER') || `${generator.INDENT}pass\n`;
+  const id = block.id.replace(/[^a-zA-Z0-9]/g, '');
+  return `@no_requirements("deadline_0")\nasync def _deadline_${id}_0():\n${firstCommands}@no_requirements("deadline_1")\nasync def _deadline_${id}_1():\n${secondCommands}await Command.deadline(_deadline_${id}_0, _deadline_${id}_1).with_automatic_name()\n`;
 };
 
 forBlock['sc_wait_until'] = function (
@@ -1327,13 +1368,13 @@ forBlock['sc_a301_sensor_value'] = function (
   const motor = deviceReference(block, generator);
   const sensor = block.getFieldValue('SENSOR');
   const expressions: Record<string, string> = {
-    ABSOLUTE_POSITION: `${motor}.getAbsoluteEncoderPosition().get()`,
-    BUS_VOLTAGE: `${motor}.getBusVoltage().get()`,
-    CURRENT: `${motor}.getMotorCurrent().get()`,
-    POSITION: `${motor}.getRelativeEncoderPosition().get()`,
-    POWER: `(${motor}.getThrottle() * 100)`,
-    TEMPERATURE: `${motor}.getMotorTemperature().get()`,
-    VELOCITY: `${motor}.getEncoderVelocity().get()`,
+    ABSOLUTE_POSITION: `${motor}.get_absolute_encoder_position().get()`,
+    BUS_VOLTAGE: `${motor}.get_bus_voltage().get()`,
+    CURRENT: `${motor}.get_motor_current().get()`,
+    POSITION: `${motor}.get_relative_encoder_position().get()`,
+    POWER: `(${motor}.get_throttle() * 100)`,
+    TEMPERATURE: `${motor}.get_motor_temperature().get()`,
+    VELOCITY: `${motor}.get_encoder_velocity().get()`,
   };
 
   return [expressions[sensor] || expressions.VELOCITY, Order.FUNCTION_CALL];
@@ -1384,7 +1425,7 @@ forBlock['sc_wpilib_duty_cycle_encoder_connected'] = function (
   block: Blockly.Block,
 ) {
   return [
-    `${dutyCycleEncoderReference(block)}.isConnected()`,
+    `${dutyCycleEncoderReference(block)}.is_connected()`,
     Order.FUNCTION_CALL,
   ];
 };
@@ -1397,7 +1438,7 @@ forBlock['sc_wpilib_analog_accelerometer_value'] = function (
   block: Blockly.Block,
 ) {
   return [
-    `${analogAccelerometerReference(block)}.getAcceleration()`,
+    `${analogAccelerometerReference(block)}.get_acceleration()`,
     Order.FUNCTION_CALL,
   ];
 };
@@ -1415,12 +1456,15 @@ forBlock['sc_wpilib_imu_value'] = function (
   const reading = block.getFieldValue('READING');
   if (reading === 'TURN_RATE') {
     registerPythonImport(generator, 'math');
-    return [`math.degrees(${IMU_REFERENCE}.getGyroRateZ())`, Order.FUNCTION_CALL];
+    return [
+      `math.degrees(${IMU_REFERENCE}.get_gyro_rate_z())`,
+      Order.FUNCTION_CALL,
+    ];
   }
   const accelAxis: Record<string, string> = {
-    ACCEL_X: 'getAccelX',
-    ACCEL_Y: 'getAccelY',
-    ACCEL_Z: 'getAccelZ',
+    ACCEL_X: 'get_accel_x',
+    ACCEL_Y: 'get_accel_y',
+    ACCEL_Z: 'get_accel_z',
   };
   if (accelAxis[reading]) {
     return [`${IMU_REFERENCE}.${accelAxis[reading]}()`, Order.FUNCTION_CALL];
@@ -1429,11 +1473,11 @@ forBlock['sc_wpilib_imu_value'] = function (
 };
 
 forBlock['sc_wpilib_imu_reset'] = function () {
-  return `${IMU_REFERENCE}.reset()\n`;
+  return `${IMU_REFERENCE}.reset_yaw()\n`;
 };
 
 forBlock['sc_wpilib_match_time'] = function () {
-  return ['wpilib.Timer.getMatchTime()', Order.FUNCTION_CALL];
+  return ['wpilib.Timer.get_match_time()', Order.FUNCTION_CALL];
 };
 
 forBlock['sc_wpilib_digital_output_set'] = function (block: Blockly.Block) {
@@ -1447,23 +1491,23 @@ forBlock['sc_wpilib_smartdashboard_put'] = function (
 ) {
   const key = pythonStringLiteral(block.getFieldValue('KEY'));
   const value = valueToCode(block, generator, 'VALUE', '0');
-  return `wpilib.SmartDashboard.putNumber(${key}, ${value})\n`;
+  return `wpilib.SmartDashboard.put_number(${key}, ${value})\n`;
 };
 
 forBlock['sc_wpilib_smartdashboard_get'] = function (block: Blockly.Block) {
   const key = pythonStringLiteral(block.getFieldValue('KEY'));
-  return [`wpilib.SmartDashboard.getNumber(${key}, 0)`, Order.FUNCTION_CALL];
+  return [`wpilib.SmartDashboard.get_number(${key}, 0)`, Order.FUNCTION_CALL];
 };
 
 forBlock['sc_rev_color_sensor_value'] = function (block: Blockly.Block) {
   const sensor = revColorSensorReference(block);
   const reading = block.getFieldValue('READING');
   const expressions: Record<string, string> = {
-    BLUE: `${sensor}.getColor().blue`,
-    GREEN: `${sensor}.getColor().green`,
-    IR: `${sensor}.getIR()`,
-    PROXIMITY: `${sensor}.getProximity()`,
-    RED: `${sensor}.getColor().red`,
+    BLUE: `${sensor}.get_color().blue`,
+    GREEN: `${sensor}.get_color().green`,
+    IR: `${sensor}.get_ir()`,
+    PROXIMITY: `${sensor}.get_proximity()`,
+    RED: `${sensor}.get_color().red`,
   };
 
   return [expressions[reading] || expressions.PROXIMITY, Order.FUNCTION_CALL];
@@ -1472,7 +1516,7 @@ forBlock['sc_rev_color_sensor_value'] = function (block: Blockly.Block) {
 forBlock['sc_rev_color_sensor_status'] = function (block: Blockly.Block) {
   const sensor = revColorSensorReference(block);
   const method =
-    block.getFieldValue('STATUS') === 'HAS_RESET' ? 'hasReset' : 'isConnected';
+    block.getFieldValue('STATUS') === 'HAS_RESET' ? 'has_reset' : 'is_connected';
   return [`${sensor}.${method}()`, Order.FUNCTION_CALL];
 };
 
@@ -1483,22 +1527,25 @@ forBlock['sc_rev_color_sensor_sees_color'] = function (block: Blockly.Block) {
 forBlock['sc_gamepad_button'] = function (block: Blockly.Block) {
   const button = block.getFieldValue('BUTTON');
   const state = block.getFieldValue('STATE');
-  const suffix = state === 'Held' ? '' : state;
+  const suffix = state === 'Held' ? '' : `_${state.toLowerCase()}`;
   return [
-    `${gamepadReference(block)}.get${button}Button${suffix}()`,
+    `${gamepadReference(block)}.get_${gamepadButtonStem(button)}_button${suffix}()`,
     Order.FUNCTION_CALL,
   ];
 };
 
 forBlock['sc_gamepad_axis'] = function (block: Blockly.Block) {
   const axis = block.getFieldValue('AXIS');
-  return [`${gamepadReference(block)}.get${axis}()`, Order.FUNCTION_CALL];
+  return [
+    `${gamepadReference(block)}.get_${snakeCase(axis)}()`,
+    Order.FUNCTION_CALL,
+  ];
 };
 
 forBlock['sc_gamepad_trigger'] = function (block: Blockly.Block) {
   const side = block.getFieldValue('SIDE');
   return [
-    `${gamepadReference(block)}.get${side}TriggerAxis()`,
+    `${gamepadReference(block)}.get_${snakeCase(side)}_trigger()`,
     Order.FUNCTION_CALL,
   ];
 };
@@ -1521,3 +1568,98 @@ forBlock['sc_python_setup_line'] = function (block: Blockly.Block) {
   const code = (block.getFieldValue('CODE') || '').trim();
   return code ? `${code}\n` : 'pass\n';
 };
+
+forBlock['procedures_defnoreturn'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const funcName = generator.getProcedureName(block.getFieldValue('NAME'));
+  const varModels = block.getVarModels();
+  const args = varModels.map(m => generator.getVariableName(m.getId()));
+  const argString = args.length > 0 ? `, ${args.join(', ')}` : '';
+  const stack = generator.statementToCode(block, 'STACK') || '    pass\n';
+
+  if (args.length > 0) {
+    const bodyCode = `        async def body():\n${indentCode(stack, 8)}`;
+    const returnCode = `        return Command.no_requirements(body).named("${funcName.replace(/"/g, '\\"')}")\n`;
+    const defCode = `    def ${funcName}(self${argString}):\n${bodyCode}${returnCode}`;
+    blockMethodBodies.push(defCode);
+  } else {
+    const defCode = `    @no_requirements()\n    async def ${funcName}(self):\n${indentCode(stack, 4)}`;
+    blockMethodBodies.push(defCode);
+  }
+  return null;
+};
+
+forBlock['procedures_callnoreturn'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const funcName = generator.getProcedureName(block.getFieldValue('NAME'));
+  const args: string[] = [];
+  let i = 0;
+  while (block.getInput('ARG' + i)) {
+    args.push(generator.valueToCode(block, 'ARG' + i, Order.NONE) || 'None');
+    i++;
+  }
+  const argString = `(${args.join(', ')})`;
+  return `await self.${funcName}${argString}\n`;
+};
+
+forBlock['procedures_defreturn'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const funcName = generator.getProcedureName(block.getFieldValue('NAME'));
+  const varModels = block.getVarModels();
+  const args = varModels.map(m => generator.getVariableName(m.getId()));
+  const argString = args.length > 0 ? `, ${args.join(', ')}` : '';
+  const stack = generator.statementToCode(block, 'STACK') || '';
+  const returnValue = generator.valueToCode(block, 'RETURN', Order.NONE) || 'None';
+  const defCode = `    def ${funcName}(self${argString}):\n${stack ? indentCode(stack, 4) : ''}${generator.INDENT}return ${returnValue}\n`;
+  blockMethodBodies.push(defCode);
+  return null;
+};
+
+forBlock['procedures_callreturn'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const funcName = generator.getProcedureName(block.getFieldValue('NAME'));
+  const args: string[] = [];
+  let i = 0;
+  while (block.getInput('ARG' + i)) {
+    args.push(generator.valueToCode(block, 'ARG' + i, Order.NONE) || 'None');
+    i++;
+  }
+  return [`self.${funcName}(${args.join(', ')})`, Order.FUNCTION_CALL];
+};
+
+forBlock['variables_get'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const varName = generator.getVariableName(block.getFieldValue('VAR'));
+  return [`self.${varName}`, Order.ATOMIC];
+};
+
+forBlock['variables_set'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const argument0 = generator.valueToCode(block, 'VALUE', Order.NONE) || '0';
+  const varName = generator.getVariableName(block.getFieldValue('VAR'));
+  return `self.${varName} = ${argument0}\n`;
+};
+
+forBlock['math_change'] = function (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) {
+  const argument0 = generator.valueToCode(block, 'DELTA', Order.ADDITIVE) || '0';
+  const varName = generator.getVariableName(block.getFieldValue('VAR'));
+  return `self.${varName} += ${argument0}\n`;
+};
+
+forBlock['variables_get_dynamic'] = forBlock['variables_get'];
+forBlock['variables_set_dynamic'] = forBlock['variables_set'];

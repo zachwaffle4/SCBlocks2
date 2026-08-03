@@ -689,7 +689,7 @@ const scDrivetrainArcadeDrive = {
   previousStatement: "Command",
   nextStatement: "Command",
   colour: movementColour,
-  tooltip: "Uses wpilib.DifferentialDrive arcadeDrive with two A301 motors.",
+  tooltip: "Uses wpilib.DifferentialDrive arcade_drive with two A301 motors.",
   helpUrl: "",
 };
 
@@ -711,7 +711,7 @@ const scDrivetrainTankDrive = {
   previousStatement: "Command",
   nextStatement: "Command",
   colour: movementColour,
-  tooltip: "Uses wpilib.DifferentialDrive tankDrive with two A301 motors.",
+  tooltip: "Uses wpilib.DifferentialDrive tank_drive with two A301 motors.",
   helpUrl: "",
 };
 
@@ -748,7 +748,7 @@ const scMecanumDrive = {
   previousStatement: "Command",
   nextStatement: "Command",
   colour: movementColour,
-  tooltip: "Uses wpilib.MecanumDrive driveCartesian with four A301 motors.",
+  tooltip: "Uses wpilib.MecanumDrive drive_cartesian with four A301 motors.",
   helpUrl: "",
 };
 
@@ -845,11 +845,11 @@ const scParallelCommands = {
       check: "Command",
     },
   ],
-  inputsInline: true,
   previousStatement: "Command",
   nextStatement: "Command",
   colour: controlColour,
   tooltip: "Runs two command stacks at the same time.",
+  inputsInline: true,
   helpUrl: "",
 };
 
@@ -869,11 +869,11 @@ const scRaceCommands = {
       check: "Command",
     },
   ],
-  inputsInline: true,
   previousStatement: "Command",
   nextStatement: "Command",
   colour: controlColour,
   tooltip: "Runs two command stacks and ends when either one finishes.",
+  inputsInline: true,
   helpUrl: "",
 };
 
@@ -1498,7 +1498,8 @@ const scGamepadButton = {
     {
       type: "field_dropdown",
       name: "BUTTON",
-      // Values are the wpilib.Gamepad getter stems: get{Value}Button[State]().
+      // Values are legacy wpilib.Gamepad getter stems; the generator lowers them
+      // to the post4 snake_case names (SouthFace -> get_face_down_button).
       options: [
         ["A", "SouthFace"],
         ["B", "EastFace"],
@@ -1540,7 +1541,8 @@ const scGamepadAxis = {
     {
       type: "field_dropdown",
       name: "AXIS",
-      // Values are the wpilib.Gamepad getter stems: get{Value}().
+      // Values are CamelCase axis stems; the generator lowers them to snake_case
+      // (LeftX -> get_left_x).
       options: [
         ["left stick X", "LeftX"],
         ["left stick Y", "LeftY"],

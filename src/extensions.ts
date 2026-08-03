@@ -23,6 +23,7 @@ import {
   A301_INSTANCE_METHODS,
   A301_VALUE_METHODS,
 } from './generated/a301';
+import {screamingSnakeCase, snakeCase} from './pythonNaming';
 import {
   extensionInstanceReference,
 
@@ -263,7 +264,9 @@ const getArgs = (block: Blockly.Block, generator: PythonGenerator) => {
 
 const callExpression = (block: Blockly.Block, generator: PythonGenerator) => {
   const target = (block.getFieldValue('TARGET') || 'self.device').trim();
-  const method = block.getFieldValue('METHOD');
+  // METHOD is a serialized label, so blocks saved before the post4 snake_case
+  // switch still carry CamelCase names. snakeCase() is a no-op on new ones.
+  const method = snakeCase(block.getFieldValue('METHOD'));
   const args = getArgs(block, generator);
   importForDotted(generator, target);
   return `${target}.${method}(${args})`;
@@ -290,7 +293,9 @@ extensionForBlock['sc_ext_enum'] = function (
   generator: PythonGenerator,
 ) {
   const enumName = block.getFieldValue('ENUM');
-  const value = block.getFieldValue('VALUE');
+  // Like METHOD, VALUE is a serialized label, so blocks saved before post4 still
+  // carry the old kCamelCase member names.
+  const value = screamingSnakeCase(block.getFieldValue('VALUE'));
   importForDotted(generator, enumName);
   return [`${enumName}.${value}`, Order.MEMBER];
 };
@@ -302,7 +307,7 @@ const instanceCallExpression = (
   const instance = getExtensionInstance(block.getFieldValue('INSTANCE'));
   if (!instance) return null;
   importForDotted(generator, instance.className);
-  const method = block.getFieldValue('METHOD');
+  const method = snakeCase(block.getFieldValue('METHOD'));
   const args = getArgs(block, generator);
   return `${extensionInstanceReference(instance)}.${method}(${args})`;
 };
