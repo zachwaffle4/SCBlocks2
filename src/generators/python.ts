@@ -5,9 +5,9 @@
  */
 
 import * as Blockly from 'blockly/core';
-import {Order, pythonGenerator, type PythonGenerator} from 'blockly/python';
-import {varTypeAnnotation, varDefaultValue} from '../variableCategory';
-import {getA301Method} from '../generated/a301';
+import { Order, pythonGenerator, type PythonGenerator } from 'blockly/python';
+import { varTypeAnnotation, varDefaultValue } from '../variableCategory';
+import { getA301Method } from '../generated/a301';
 import {
   getDevice,
   getDevices,
@@ -21,8 +21,8 @@ import {
   mechanismCommandNames,
   type Mechanism,
 } from '../mechanisms';
-import {getRobotMode} from '../robotMode';
-import {snakeCase} from '../pythonNaming';
+import { getRobotMode } from '../robotMode';
+import { snakeCase } from '../pythonNaming';
 import {
   getExtensionInstances,
   type ExtensionInstance,
@@ -33,7 +33,7 @@ import {
 // This file has no side effects!
 export const forBlock = Object.create(null);
 
-type GeneratorDefinitions = {definitions_: Record<string, string>};
+type GeneratorDefinitions = { definitions_: Record<string, string> };
 
 let generatedMechanismImports = new Set<string>();
 
@@ -375,7 +375,7 @@ const mechanismResources = (mechanism: Mechanism): MechanismResources => {
       `Skipping invalid mechanism resources for ${mechanism.name}:`,
       error,
     );
-    return {sensors: [], extensions: []};
+    return { sensors: [], extensions: [] };
   } finally {
     workspace.dispose();
   }
@@ -393,7 +393,7 @@ const mechanismResourceBindings = (resources: MechanismResources) => {
     let suffix = 2;
     while (parameters.has(parameter)) parameter = `${base}_${suffix++}`;
     parameters.add(parameter);
-    bindings.push({parameter, target});
+    bindings.push({ parameter, target });
   };
   for (const sensor of resources.sensors) add(sensor.name);
   for (const instance of resources.extensions) {
@@ -473,7 +473,7 @@ const subsystemEventStacks = (mechanism: Mechanism) => {
     generatingSubsystemCommand = previousGeneratingSubsystemCommand;
     workspace.dispose();
   }
-  return {startCommands, commandStacks, drivetrain, varInitLines};
+  return { startCommands, commandStacks, drivetrain, varInitLines };
 };
 
 /**
@@ -497,14 +497,14 @@ export const generateMechanismDefinitions = () => {
 
     definitions.push(
       `class ${mechanismClassName(names.get(mechanism.id) || mechanism.name)}(Mechanism):`,
-      `    def __init__(self${bindings.map(({parameter}) => `, ${parameter}`).join('')}):`,
+      `    def __init__(self${bindings.map(({ parameter }) => `, ${parameter}`).join('')}):`,
       `        super().__init__("${mechanismClassName(names.get(mechanism.id) || mechanism.name)}")`,
       ...motors.map(
         (motor) =>
           `        self.${safePythonIdentifier(motor.name, 'motor')} = A301(${motor.deviceId}, ${motor.bus})`,
       ),
       ...bindings.map(
-        ({parameter, target}) => `        self.${target} = ${parameter}`,
+        ({ parameter, target }) => `        self.${target} = ${parameter}`,
       ),
       `        self._motors = [${motorReferences.join(', ')}]`,
       ...(events.drivetrain ? drivetrainInitLines(events.drivetrain) : []),
@@ -831,7 +831,7 @@ const sensorInitializers = (workspace: Blockly.Workspace) => {
   const initializers = new Map<string, SensorInitializer>();
   const add = (name: string, expression: string) => {
     if (!initializers.has(name)) {
-      initializers.set(name, {name, expression});
+      initializers.set(name, { name, expression });
     }
   };
 
@@ -965,14 +965,14 @@ const sensorInitLines = (
     }
   }
   if (
-    [...initializers.values()].some(({expression}) =>
+    [...initializers.values()].some(({ expression }) =>
       expression.startsWith('rev.'),
     )
   ) {
     registerPythonImport(generator, 'rev');
   }
   return [...initializers.values()].map(
-    ({name, expression}) => `        self.${name} = ${expression}`,
+    ({ name, expression }) => `        self.${name} = ${expression}`,
   );
 };
 
@@ -1149,7 +1149,7 @@ export const generateOpmodeClass = (
         const name = mechanismNames.get(mechanism.id) || 'mechanism';
         const bindings = mechanismBindings.get(mechanism.id) || [];
         initBody.push(
-          `        self.${name} = ${mechanismClassName(name)}(${bindings.map(({target}) => `self.${target}`).join(', ')})`,
+          `        self.${name} = ${mechanismClassName(name)}(${bindings.map(({ target }) => `self.${target}`).join(', ')})`,
         );
         // Each subsystem's "when this subsystem starts" event runs beside the
         // OpMode's own start hats, just like separate Scratch event scripts.

@@ -15,7 +15,7 @@ const generatorStub = () => ({
 });
 
 // Order is consulted as Order.ATOMIC, Order.FUNCTION_CALL, and so on.
-export const Order = new Proxy({}, {get: () => 0});
+export const Order = new Proxy({}, { get: () => 0 });
 
 export const javascriptGenerator = generatorStub();
 export const dartGenerator = generatorStub();

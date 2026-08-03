@@ -1,5 +1,5 @@
 import * as Blockly from 'blockly/core';
-import {Order, type PythonGenerator} from 'blockly/python';
+import { Order, type PythonGenerator } from 'blockly/python';
 
 const COLOUR = 230;
 
@@ -46,7 +46,7 @@ const scObjectCall = {
   type: 'sc_object_call',
   message0: '%1 . %2',
   args0: [
-    {type: 'input_value', name: 'OBJECT'},
+    { type: 'input_value', name: 'OBJECT' },
     {
       type: 'field_input',
       name: 'METHOD',
@@ -67,7 +67,7 @@ const scObjectValue = {
   type: 'sc_object_value',
   message0: '%1 . %2',
   args0: [
-    {type: 'input_value', name: 'OBJECT'},
+    { type: 'input_value', name: 'OBJECT' },
     {
       type: 'field_input',
       name: 'METHOD',
@@ -97,11 +97,11 @@ Blockly.Extensions.registerMutator(
   {
     itemCount_: 0,
 
-    saveExtraState(this: any): {itemCount: number} {
-      return {itemCount: this.itemCount_};
+    saveExtraState(this: any): { itemCount: number } {
+      return { itemCount: this.itemCount_ };
     },
 
-    loadExtraState(this: any, state: {itemCount: number}) {
+    loadExtraState(this: any, state: { itemCount: number }) {
       this.itemCount_ = state.itemCount;
       this.updateShape_();
     },

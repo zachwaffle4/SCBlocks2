@@ -7,14 +7,14 @@
  * fresh opmode, reading its display info, and generating Python for every tab.
  */
 import * as Blockly from 'blockly/core';
-import {pythonGenerator} from 'blockly/python';
+import { pythonGenerator } from 'blockly/python';
 import {
   generateMechanismDefinitions,
   generateOpmodeClass,
   getGeneratedMechanismImports,
 } from './generators/python';
-import {getMechanisms} from './mechanisms';
-import {getRobotMode} from './robotMode';
+import { getMechanisms } from './mechanisms';
+import { getRobotMode } from './robotMode';
 
 export const OPMODE_DETAILS_BLOCK_TYPE = 'sc_opmode_details';
 
@@ -29,7 +29,7 @@ const OPMODE_TYPE_TO_DECORATOR: Record<OpModeType, string> = {
 export type OpModeType = 'Teleop' | 'Auto' | 'Utility';
 
 // A Blockly workspace serialization (Blockly.serialization.workspaces.save).
-export type WorkspaceState = {[key: string]: unknown};
+export type WorkspaceState = { [key: string]: unknown };
 
 export type OpModeTab = {
   id: string;
@@ -82,9 +82,9 @@ export const makeOpmodeState = (
 
 type SerializedBlock = {
   type?: string;
-  fields?: {[key: string]: unknown};
+  fields?: { [key: string]: unknown };
   inputs?: Record<string, SerializedInput>;
-  next?: {block?: SerializedBlock};
+  next?: { block?: SerializedBlock };
 };
 
 type SerializedInput = {
@@ -96,17 +96,17 @@ const CONDITION_BLOCKS = new Set(['sc_trigger', 'sc_wait_until']);
 
 const numberShadow = (value: number): SerializedBlock => ({
   type: 'math_number',
-  fields: {NUM: value},
+  fields: { NUM: value },
 });
 
 const sensorGreaterThanZeroBlock = (
   sensorBlock: SerializedBlock,
 ): SerializedBlock => ({
   type: 'logic_compare',
-  fields: {OP: 'GT'},
+  fields: { OP: 'GT' },
   inputs: {
-    A: {block: sensorBlock},
-    B: {shadow: numberShadow(0)},
+    A: { block: sensorBlock },
+    B: { shadow: numberShadow(0) },
   },
 });
 
@@ -131,22 +131,22 @@ const migrateMotorGroupCommand = (block: SerializedBlock) => {
   const isPowerCommand = block.type === 'sc_motor_group_set_power';
   const commands: SerializedBlock[] = motorIds.map((id) => ({
     type: isPowerCommand ? 'sc_motor_set_power' : 'sc_motor_stop',
-    fields: {DEVICE: id},
+    fields: { DEVICE: id },
     ...(isPowerCommand && block.inputs?.POWER
-      ? {inputs: {POWER: clone(block.inputs.POWER)}}
+      ? { inputs: { POWER: clone(block.inputs.POWER) } }
       : {}),
   }));
   if (!commands.length) {
     Object.assign(block, {
       type: 'sc_wait_seconds',
       fields: undefined,
-      inputs: {SECONDS: {shadow: numberShadow(0)}},
+      inputs: { SECONDS: { shadow: numberShadow(0) } },
       next,
     });
     return;
   }
   for (let index = 0; index < commands.length - 1; index += 1) {
-    commands[index].next = {block: commands[index + 1]};
+    commands[index].next = { block: commands[index + 1] };
   }
   commands[commands.length - 1].next = next;
   Object.assign(block, commands[0]);
@@ -162,7 +162,7 @@ const migrateSerializedBlock = (block: SerializedBlock | undefined) => {
     migrateMotorGroupCommand(block);
   } else if (block.type === 'sc_motor_group') {
     block.type = 'math_number';
-    block.fields = {NUM: 0};
+    block.fields = { NUM: 0 };
     block.inputs = undefined;
   }
 
@@ -197,8 +197,8 @@ export const migrateWorkspaceState = (
   state: WorkspaceState,
 ): WorkspaceState => {
   const migrated = JSON.parse(JSON.stringify(state ?? {})) as WorkspaceState;
-  const blocks = (migrated as {blocks?: {blocks?: SerializedBlock[]}})?.blocks
-    ?.blocks;
+  const blocks = (migrated as { blocks?: { blocks?: SerializedBlock[] } })
+    ?.blocks?.blocks;
   if (Array.isArray(blocks)) {
     for (const block of blocks) migrateSerializedBlock(block);
   }
@@ -206,7 +206,7 @@ export const migrateWorkspaceState = (
 };
 
 const findDetailsBlock = (state: WorkspaceState): SerializedBlock | null => {
-  const blocks = (state as {blocks?: {blocks?: SerializedBlock[]}})?.blocks
+  const blocks = (state as { blocks?: { blocks?: SerializedBlock[] } })?.blocks
     ?.blocks;
   if (!Array.isArray(blocks)) return null;
   return (
@@ -226,7 +226,7 @@ export const opmodeInfoFromState = (state: WorkspaceState): OpModeInfo => {
   };
 };
 
-type GeneratorDefinitions = {definitions_: Record<string, string>};
+type GeneratorDefinitions = { definitions_: Record<string, string> };
 
 /**
  * Generates Python for every opmode tab. Each tab is loaded into a throwaway

@@ -38,7 +38,7 @@ let catalogPromise: Promise<Catalog> | null = null;
 // Resolved lazily so the URL import only runs in the browser: the headless
 // smoke test compiles this module but never asks for the catalog.
 const fetchCatalog = async (): Promise<RobotpyCatalog> => {
-  const {default: url} = await import('./generated/robotpy-api.json?url');
+  const { default: url } = await import('./generated/robotpy-api.json?url');
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(

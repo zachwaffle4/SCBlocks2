@@ -12,8 +12,8 @@
  * Regenerate with:
  *   npm run generate:api -- [path/to/robotpy_data.json] [out.ts]
  */
-import {readFileSync, writeFileSync} from 'node:fs';
-import {resolve} from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
   attributeName,
@@ -151,7 +151,7 @@ const source =
   `  classes: ApiClass[];\n` +
   `};\n`;
 
-const catalogJson = JSON.stringify({modules, classes});
+const catalogJson = JSON.stringify({ modules, classes });
 
 writeFileSync(outputPath, source);
 writeFileSync(dataPath, catalogJson);

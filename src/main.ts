@@ -6,8 +6,8 @@ import './index.css';
 import 'blockly/blocks';
 
 import ui from '@nuxt/ui/vue-plugin';
-import {createApp} from 'vue';
-import {createRouter, createWebHistory} from 'vue-router';
+import { createApp } from 'vue';
+import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 
 const router = createRouter({

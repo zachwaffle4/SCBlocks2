@@ -11,9 +11,9 @@ import {
   type FieldColourFromJsonConfig,
   type FieldColourValidator,
 } from '@blockly/field-colour';
-import {a301MethodOptions, A301_VALUE_METHODS} from '../generated/a301';
-import {deviceField, movementMotorsField} from '../devices';
-import {mechanismCommandField, mechanismField} from '../mechanisms';
+import { a301MethodOptions, A301_VALUE_METHODS } from '../generated/a301';
+import { deviceField, movementMotorsField } from '../devices';
+import { mechanismCommandField, mechanismField } from '../mechanisms';
 
 const normalizeColour = (value: unknown) => {
   const named: Record<string, string> = {
@@ -118,7 +118,7 @@ class FieldColourSlider extends BaseFieldColour {
   static override fromJson(
     options: FieldColourFromJsonConfig,
   ): FieldColourSlider {
-    const config = options as FieldColourFromJsonConfig & {text?: unknown};
+    const config = options as FieldColourFromJsonConfig & { text?: unknown };
     return new FieldColourSlider(
       config.colour ?? config.text,
       undefined,

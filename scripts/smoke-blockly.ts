@@ -1,7 +1,7 @@
 import * as Blockly from 'blockly';
 import 'blockly/blocks';
-import {pythonGenerator} from 'blockly/python';
-import {blocks} from '../src/blocks/text';
+import { pythonGenerator } from 'blockly/python';
+import { blocks } from '../src/blocks/text';
 import {
   addDevice,
   registerDeviceField,
@@ -19,7 +19,7 @@ import {
   registerExtensionInstanceField,
   setExtensionInstances,
 } from '../src/extensionInstances';
-import {forBlock, generateOpmodeClass} from '../src/generators/python';
+import { forBlock, generateOpmodeClass } from '../src/generators/python';
 import {
   addExtension,
   buildExtensionsFlyout,
@@ -27,15 +27,15 @@ import {
   extensionForBlock,
   removeExtension,
 } from '../src/extensions';
-import {A301_CLASS_NAME} from '../src/generated/a301';
+import { A301_CLASS_NAME } from '../src/generated/a301';
 import {
   generateAllOpmodes,
   makeOpmodeState,
   migrateWorkspaceState,
   opmodeInfoFromState,
 } from '../src/opmodes';
-import {buildToolbox, toolbox} from '../src/toolbox';
-import {setRobotMode} from '../src/robotMode';
+import { buildToolbox, toolbox } from '../src/toolbox';
+import { setRobotMode } from '../src/robotMode';
 
 const assert = (condition: unknown, message: string) => {
   if (!condition) {
@@ -65,7 +65,7 @@ Object.assign(pythonGenerator.forBlock, extensionForBlock);
 const workspace = new Blockly.Workspace();
 // Motors live in the project-level registry now; adding one here makes it
 // register automatically in every generated opmode.
-const device = addDevice({name: 'drive_motor', bus: 3, deviceId: 0});
+const device = addDevice({ name: 'drive_motor', bus: 3, deviceId: 0 });
 
 const numberBlock = (value: number, targetWorkspace = workspace) => {
   const block = targetWorkspace.newBlock('math_number');
@@ -159,13 +159,13 @@ ifDetails.setFieldValue('If Context', 'NAME');
 
 const commandStart = ifWorkspace.newBlock('sc_on_start');
 const commandIf = ifWorkspace.newBlock('sc_if') as Blockly.Block & {
-  loadExtraState?: (state: {hasElse?: boolean}) => void;
+  loadExtraState?: (state: { hasElse?: boolean }) => void;
 };
 assert(
   commandIf.getStyleName() === 'control_blocks',
   'The contextual if block should use the Control block style',
 );
-commandIf.loadExtraState?.({hasElse: true});
+commandIf.loadExtraState?.({ hasElse: true });
 assert(
   commandIf.getInput('ELSE'),
   'The if block should support an else branch',
@@ -192,9 +192,9 @@ assertIncludes(commandIfCode, 'else:');
 
 const setupHat = ifWorkspace.newBlock('sc_on_setup');
 const setupIf = ifWorkspace.newBlock('sc_if') as Blockly.Block & {
-  loadExtraState?: (state: {hasElse?: boolean}) => void;
+  loadExtraState?: (state: { hasElse?: boolean }) => void;
 };
-setupIf.loadExtraState?.({hasElse: true});
+setupIf.loadExtraState?.({ hasElse: true });
 const setupCondition = ifWorkspace.newBlock('logic_boolean');
 setupCondition.setFieldValue('FALSE', 'BOOL');
 connectValue(setupIf, 'IF0', setupCondition);
@@ -433,9 +433,9 @@ gamepadTrigger.dispose(true);
 
 // The gamepad category is Teleop-only: present when requested, absent from the
 // default toolbox.
-const teleopCategoryNames = buildToolbox({includeGamepad: true})
+const teleopCategoryNames = buildToolbox({ includeGamepad: true })
   .contents.filter((item) => item.kind === 'category')
-  .map((item) => (item as {name?: string}).name);
+  .map((item) => (item as { name?: string }).name);
 assert(
   teleopCategoryNames.includes('Gamepad'),
   'Teleop toolbox should include the Gamepad category',
@@ -447,7 +447,7 @@ assert(
 
 const categoryNames = toolbox.contents
   .filter((item) => item.kind === 'category')
-  .map((item) => (item as {name?: string}).name);
+  .map((item) => (item as { name?: string }).name);
 // OpModes are tabs (one workspace + hat block each), not a toolbox category.
 assert(
   !categoryNames.includes('OpModes'),
@@ -471,13 +471,13 @@ const sensorsCategoryNames = buildToolbox({
   includeWpilibSensors: true,
 })
   .contents.filter((item) => item.kind === 'category')
-  .map((item) => (item as {name?: string}).name);
+  .map((item) => (item as { name?: string }).name);
 assert(
   sensorsCategoryNames.includes('WPILib Sensors'),
   'WPILib Sensors should appear after adding the curated extension',
 );
 const sensorsToolbox = JSON.stringify(
-  buildToolbox({includeGamepad: false, includeWpilibSensors: true}),
+  buildToolbox({ includeGamepad: false, includeWpilibSensors: true }),
 );
 assertIncludes(sensorsToolbox, 'sc_wpilib_digital_input');
 assertIncludes(sensorsToolbox, 'sc_wpilib_encoder_reset');
@@ -491,13 +491,13 @@ const revSensorsCategoryNames = buildToolbox({
   includeRevSensors: true,
 })
   .contents.filter((item) => item.kind === 'category')
-  .map((item) => (item as {name?: string}).name);
+  .map((item) => (item as { name?: string }).name);
 assert(
   revSensorsCategoryNames.includes('REV Sensors'),
   'REV Sensors should appear after adding the separate curated extension',
 );
 const revSensorsToolbox = JSON.stringify(
-  buildToolbox({includeGamepad: false, includeRevSensors: true}),
+  buildToolbox({ includeGamepad: false, includeRevSensors: true }),
 );
 assertIncludes(revSensorsToolbox, 'sc_rev_color_sensor_value');
 assertIncludes(revSensorsToolbox, 'sc_rev_color_sensor_status');
@@ -507,7 +507,8 @@ assertIncludes(revSensorsToolbox, 'sc_rev_color_sensor_proximity_trigger');
 
 const extensionsCategory = toolbox.contents.find(
   (item) =>
-    item.kind === 'category' && (item as {name?: string}).name === 'Extensions',
+    item.kind === 'category' &&
+    (item as { name?: string }).name === 'Extensions',
 );
 assert(extensionsCategory, 'Missing Extensions category');
 assert(
@@ -521,7 +522,8 @@ assert(
 
 const operatorsCategory = toolbox.contents.find(
   (item) =>
-    item.kind === 'category' && (item as {name?: string}).name === 'Operators',
+    item.kind === 'category' &&
+    (item as { name?: string }).name === 'Operators',
 );
 const operatorBlocks = JSON.stringify(operatorsCategory ?? {});
 assertIncludes(operatorBlocks, '"type":"math_single"');
@@ -569,9 +571,9 @@ assert(
 powerBlock.dispose(true);
 
 // Adding a second motor makes it auto-register in generated opmodes too.
-addDevice({name: 'arm_motor', bus: 7, deviceId: 1});
+addDevice({ name: 'arm_motor', bus: 7, deviceId: 1 });
 const registrationCheck = generateAllOpmodes([
-  {id: 'reg', state: makeOpmodeState('Teleop', 'Drive')},
+  { id: 'reg', state: makeOpmodeState('Teleop', 'Drive') },
 ]);
 assertIncludes(registrationCheck, 'from commands3 import *');
 
@@ -587,7 +589,7 @@ assertIncludes(registrationCheck, 'self.arm_motor = A301(1, 7)');
 // Clearing the registry means no motors are registered.
 setDevices([]);
 const emptyCheck = generateAllOpmodes([
-  {id: 'empty', state: makeOpmodeState('Teleop', 'Drive')},
+  { id: 'empty', state: makeOpmodeState('Teleop', 'Drive') },
 ]);
 assert(
   !emptyCheck.includes(' = A301('),
@@ -600,7 +602,7 @@ setDevices([device]);
 const staleSensorConditionState = makeOpmodeState('Teleop', 'Sensor Check');
 (
   staleSensorConditionState as {
-    blocks: {blocks: Array<Record<string, unknown>>};
+    blocks: { blocks: Array<Record<string, unknown>> };
   }
 ).blocks.blocks.push({
   type: 'sc_trigger',
@@ -630,7 +632,7 @@ const migratedSensorCondition = migrateWorkspaceState(
   blocks: {
     blocks: Array<{
       type?: string;
-      inputs?: Record<string, {block?: {type?: string}}>;
+      inputs?: Record<string, { block?: { type?: string } }>;
     }>;
   };
 };
@@ -649,7 +651,7 @@ Blockly.serialization.workspaces.load(
 migratedWorkspace.dispose();
 
 const migratedCode = generateAllOpmodes([
-  {id: 'stale-sensor', state: staleSensorConditionState},
+  { id: 'stale-sensor', state: staleSensorConditionState },
 ]);
 assertIncludes(migratedCode, 'Trigger(lambda:');
 assertIncludes(
@@ -662,8 +664,12 @@ assertIncludes(
 // and drive call blocks only supply movement values.
 // ---------------------------------------------------------------------------
 
-const rightMotor = addDevice({name: 'right_motor', bus: 4, deviceId: 2});
-const rearLeftMotor = addDevice({name: 'rear_left_motor', bus: 5, deviceId: 3});
+const rightMotor = addDevice({ name: 'right_motor', bus: 4, deviceId: 2 });
+const rearLeftMotor = addDevice({
+  name: 'rear_left_motor',
+  bus: 5,
+  deviceId: 3,
+});
 const frontRightMotor = addDevice({
   name: 'front_right_motor',
   bus: 6,
@@ -766,7 +772,7 @@ drivetrainWorkspace.dispose();
 
 const motionCategory = toolbox.contents.find(
   (item) =>
-    item.kind === 'category' && (item as {name?: string}).name === 'Motors',
+    item.kind === 'category' && (item as { name?: string }).name === 'Motors',
 );
 const motionBlocks = JSON.stringify(motionCategory ?? {});
 assertIncludes(motionBlocks, 'sc_motor_set_power');
@@ -780,7 +786,7 @@ assert(
 
 const movementCategory = toolbox.contents.find(
   (item) =>
-    item.kind === 'category' && (item as {name?: string}).name === 'Movement',
+    item.kind === 'category' && (item as { name?: string }).name === 'Movement',
 );
 const movementBlocks = JSON.stringify(movementCategory ?? {});
 assertIncludes(movementBlocks, 'sc_movement_motors');
@@ -795,8 +801,8 @@ assertIncludes(movementBlocks, 'sc_mecanum_stop');
 // class. Two tabs => two classes.
 // ---------------------------------------------------------------------------
 
-const teleopTab = {id: 'a', state: makeOpmodeState('Teleop', 'Drive')};
-const autoTab = {id: 'b', state: makeOpmodeState('Auto', 'Score')};
+const teleopTab = { id: 'a', state: makeOpmodeState('Teleop', 'Drive') };
+const autoTab = { id: 'b', state: makeOpmodeState('Auto', 'Score') };
 assert(
   opmodeInfoFromState(teleopTab.state).type === 'Teleop',
   'Bad tab info parse',
@@ -926,16 +932,16 @@ const legacySubsystem = addMechanism({
       blocks: [
         {
           type: 'sc_subsystem_on_command',
-          fields: {COMMAND: 'run'},
+          fields: { COMMAND: 'run' },
           next: {
             block: {
               type: 'sc_subsystem_set_power',
               inputs: {
                 POWER: {
-                  shadow: {type: 'math_number', fields: {NUM: 50}},
+                  shadow: { type: 'math_number', fields: { NUM: 50 } },
                 },
               },
-              next: {block: {type: 'sc_subsystem_stop'}},
+              next: { block: { type: 'sc_subsystem_stop' } },
             },
           },
         },
@@ -1053,7 +1059,7 @@ assertIncludes(
 );
 assertIncludes(mechanismFile, 'self.intake_timer.restart()');
 const advancedToolbox = JSON.stringify(
-  buildToolbox({includeGamepad: false, robotMode: 'advanced'}),
+  buildToolbox({ includeGamepad: false, robotMode: 'advanced' }),
 );
 assertIncludes(advancedToolbox, 'sc_mechanism_run_command');
 assert(
@@ -1156,13 +1162,13 @@ const outputsCategoryNames = buildToolbox({
   includeWpilibOutputs: true,
 })
   .contents.filter((item) => item.kind === 'category')
-  .map((item) => (item as {name?: string}).name);
+  .map((item) => (item as { name?: string }).name);
 assert(
   outputsCategoryNames.includes('WPILib Outputs'),
   'WPILib Outputs should appear after adding the curated extension',
 );
 const outputsToolbox = JSON.stringify(
-  buildToolbox({includeGamepad: false, includeWpilibOutputs: true}),
+  buildToolbox({ includeGamepad: false, includeWpilibOutputs: true }),
 );
 assertIncludes(outputsToolbox, 'sc_wpilib_digital_output_set');
 assertIncludes(outputsToolbox, 'sc_wpilib_smartdashboard_put');

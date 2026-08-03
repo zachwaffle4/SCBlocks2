@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import * as Blockly from 'blockly/core';
-import {registerContinuousToolbox} from '@blockly/continuous-toolbox';
-import {pythonGenerator} from 'blockly/python';
-import {computed, onBeforeUnmount, onMounted, ref, watch} from 'vue';
-import {createHighlighterCore, type HighlighterCore} from 'shiki/core';
-import {createJavaScriptRawEngine} from 'shiki/engine/javascript';
+import { registerContinuousToolbox } from '@blockly/continuous-toolbox';
+import { pythonGenerator } from 'blockly/python';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { createHighlighterCore, type HighlighterCore } from 'shiki/core';
+import { createJavaScriptRawEngine } from 'shiki/engine/javascript';
 import pythonLang from '@shikijs/langs-precompiled/python';
 import lightTheme from 'shiki/themes/material-theme-lighter.mjs';
 import {
   registerSystemCoreRenderer,
   systemCoreRendererName,
 } from './blocklyRenderer';
-import {systemCoreTheme} from './blocklyTheme';
-import {blocks} from './blocks/text';
+import { systemCoreTheme } from './blocklyTheme';
+import { blocks } from './blocks/text';
 import {
   addDevice,
   getDevices,
@@ -46,10 +46,10 @@ import {
   updateExtensionInstance,
   type ExtensionInstance,
 } from './extensionInstances';
-import {forBlock} from './generators/python';
-import {buildToolbox} from './toolbox';
-import {registerTypedVariableCategory} from './variableCategory';
-import {registerVariableBlocks, variableForBlock} from './variableBlocks';
+import { forBlock } from './generators/python';
+import { buildToolbox } from './toolbox';
+import { registerTypedVariableCategory } from './variableCategory';
+import { registerVariableBlocks, variableForBlock } from './variableBlocks';
 import {
   addExtension,
   ensureCatalogLoaded,
@@ -63,7 +63,7 @@ import {
   WPILIB_OUTPUTS_EXTENSION_ID,
   WPILIB_SENSORS_EXTENSION_ID,
 } from './extensions';
-import {simpleName} from './apiCatalog';
+import { simpleName } from './apiCatalog';
 import {
   generateAllOpmodes,
   makeOpmodeState,
@@ -137,7 +137,7 @@ watch(
       highlightedCode.value = '';
     }
   },
-  {immediate: true},
+  { immediate: true },
 );
 
 // OpMode tabs.
@@ -300,9 +300,9 @@ const activeEditorTab = computed(() =>
 );
 
 const opmodeTypeOptions = [
-  {label: 'Teleop · driver controlled', value: 'Teleop'},
-  {label: 'Autonomous · pre-programmed', value: 'Auto'},
-  {label: 'Utility · tools and tests', value: 'Utility'},
+  { label: 'Teleop · driver controlled', value: 'Teleop' },
+  { label: 'Autonomous · pre-programmed', value: 'Auto' },
+  { label: 'Utility · tools and tests', value: 'Utility' },
 ];
 
 const motorUsage = computed(() => {
@@ -353,7 +353,7 @@ const syncActiveTab = () => {
     if (JSON.stringify(state) !== JSON.stringify(subsystem.state)) {
       syncingSubsystemWorkspace = true;
       try {
-        updateMechanism(subsystem.id, {state});
+        updateMechanism(subsystem.id, { state });
       } finally {
         syncingSubsystemWorkspace = false;
       }
@@ -509,14 +509,16 @@ const updateActiveOpmodeField = (field: string, value: string) => {
   const tab = activeTab();
   const rootBlocks = (
     tab?.state as {
-      blocks?: {blocks?: {type?: string; fields?: Record<string, unknown>}[]};
+      blocks?: {
+        blocks?: { type?: string; fields?: Record<string, unknown> }[];
+      };
     }
   ).blocks?.blocks;
   const serialized = rootBlocks?.find(
     (block) => block.type === 'sc_opmode_details',
   );
   if (!serialized) return;
-  serialized.fields = {...serialized.fields, [field]: value};
+  serialized.fields = { ...serialized.fields, [field]: value };
   persistProject();
   generateCode();
 };
@@ -682,15 +684,15 @@ const numberValue = (value: unknown) => {
 };
 
 const onMotorName = (id: string, value: unknown) => {
-  updateDevice(id, {name: String(value ?? '')});
+  updateDevice(id, { name: String(value ?? '') });
 };
 
 const onMotorBus = (id: string, value: unknown) => {
-  updateDevice(id, {bus: numberValue(value)});
+  updateDevice(id, { bus: numberValue(value) });
 };
 
 const onMotorDeviceId = (id: string, value: unknown) => {
-  updateDevice(id, {deviceId: numberValue(value)});
+  updateDevice(id, { deviceId: numberValue(value) });
 };
 
 const addProjectMechanism = () => {
@@ -719,7 +721,7 @@ const removeProjectMechanism = (id: string) => {
 };
 
 const onMechanismName = (id: string, value: unknown) => {
-  updateMechanism(id, {name: String(value ?? '')});
+  updateMechanism(id, { name: String(value ?? '') });
 };
 
 const toggleMechanismMotor = (
@@ -733,7 +735,7 @@ const toggleMechanismMotor = (
   } else {
     selected.delete(motorId);
   }
-  updateMechanism(mechanism.id, {motorIds: [...selected]});
+  updateMechanism(mechanism.id, { motorIds: [...selected] });
 };
 
 const updateRobotMode = (value: unknown) => {
@@ -895,7 +897,7 @@ const addExtensionObject = (className: string) => {
   // An object implies its library is loaded. The object is then constructed in
   // each generated OpMode and becomes selectable from that library's blocks.
   addExtension(className);
-  addExtensionInstance({className});
+  addExtensionInstance({ className });
   loadedExtensions.value = getLoadedExtensions();
   extensionObjects.value = [...getExtensionInstances()];
   syncToolboxForActive();
@@ -908,11 +910,11 @@ const removeExtensionObject = (id: string) => {
 };
 
 const updateExtensionObjectName = (id: string, value: unknown) => {
-  updateExtensionInstance(id, {name: String(value ?? '')});
+  updateExtensionInstance(id, { name: String(value ?? '') });
 };
 
 const updateExtensionObjectArgs = (id: string, value: unknown) => {
-  updateExtensionInstance(id, {args: String(value ?? '')});
+  updateExtensionInstance(id, { args: String(value ?? '') });
 };
 
 const shortName = (className: string) => simpleName(className);
@@ -983,7 +985,7 @@ onMounted(() => {
   // Extensions categories — so their callbacks must be registered *before* the
   // real toolbox is applied. We register them, then swap in the full toolbox.
   workspace = Blockly.inject(blocklyDiv.value, {
-    toolbox: {kind: 'categoryToolbox', contents: []},
+    toolbox: { kind: 'categoryToolbox', contents: [] },
     renderer: systemCoreRendererName,
     theme: systemCoreTheme,
     trashcan: true,
@@ -1060,8 +1062,8 @@ onMounted(() => {
   // scale, applied in reflowInternal_); pin it so flyout blocks stay constant.
   const flyout = workspace.getFlyout();
   if (flyout) {
-    (flyout as unknown as {getFlyoutScale: () => number}).getFlyoutScale = () =>
-      0.67;
+    (flyout as unknown as { getFlyoutScale: () => number }).getFlyoutScale =
+      () => 0.67;
   }
 
   // Now that every dynamic-category callback is registered, apply the real
@@ -1116,7 +1118,7 @@ onBeforeUnmount(() => {
   <UApp>
     <main
       class="flex h-screen min-w-[320px] flex-col overflow-hidden bg-slate-100 text-slate-950"
-      :class="{'hide-code-panel': !showGeneratedCode}"
+      :class="{ 'hide-code-panel': !showGeneratedCode }"
     >
       <header
         class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 shadow-sm"
@@ -1220,10 +1222,10 @@ onBeforeUnmount(() => {
                   }"
                   @update:model-value="selectEditorTab"
                 >
-                  <template #default="{item}">
+                  <template #default="{ item }">
                     <span
                       class="flex min-w-0 items-center gap-2"
-                      :class="{'opacity-45': item.isDisabled}"
+                      :class="{ 'opacity-45': item.isDisabled }"
                     >
                       <span
                         class="size-1.5 shrink-0 rounded-full"
@@ -1232,7 +1234,7 @@ onBeforeUnmount(() => {
                       />
                       <span
                         class="min-w-0 truncate"
-                        :class="{'line-through': item.isDisabled}"
+                        :class="{ 'line-through': item.isDisabled }"
                       >
                         {{ item.label }}
                       </span>
@@ -1255,7 +1257,7 @@ onBeforeUnmount(() => {
               >
                 <UDropdownMenu
                   :items="newEditorMenuItems"
-                  :content="{align: 'end'}"
+                  :content="{ align: 'end' }"
                 >
                   <UButton size="xs" color="primary" variant="solid">
                     New
@@ -1268,7 +1270,7 @@ onBeforeUnmount(() => {
                 </UDropdownMenu>
                 <UDropdownMenu
                   :items="activeEditorMenuItems"
-                  :content="{align: 'end'}"
+                  :content="{ align: 'end' }"
                 >
                   <UButton
                     size="xs"
@@ -1322,7 +1324,7 @@ onBeforeUnmount(() => {
       title="OpMode settings"
       description="Each tab generates one RobotPy class. Choose how this OpMode appears to the driver station."
       :close="false"
-      :ui="{content: 'w-[calc(100vw-2rem)] max-w-lg'}"
+      :ui="{ content: 'w-[calc(100vw-2rem)] max-w-lg' }"
     >
       <template #body>
         <div class="grid gap-4">
@@ -1359,7 +1361,7 @@ onBeforeUnmount(() => {
           </p>
         </div>
       </template>
-      <template #footer="{close}">
+      <template #footer="{ close }">
         <UButton color="neutral" variant="ghost" @click="close">Done</UButton>
       </template>
     </UModal>
@@ -1559,7 +1561,7 @@ onBeforeUnmount(() => {
                     :model-value="motor.bus"
                     :increment="false"
                     :decrement="false"
-                    :ui="{base: 'text-center'}"
+                    :ui="{ base: 'text-center' }"
                     @update:model-value="onMotorBus(motor.id, $event)"
                   />
                 </label>
@@ -1570,7 +1572,7 @@ onBeforeUnmount(() => {
                     :model-value="motor.deviceId"
                     :increment="false"
                     :decrement="false"
-                    :ui="{base: 'text-center'}"
+                    :ui="{ base: 'text-center' }"
                     @update:model-value="onMotorDeviceId(motor.id, $event)"
                   />
                 </label>
@@ -1752,7 +1754,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template #footer="{close}">
+      <template #footer="{ close }">
         <UButton
           v-if="robotMode === 'advanced' && setupStep === 'subsystems'"
           color="neutral"
@@ -1852,7 +1854,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template #footer="{close}">
+      <template #footer="{ close }">
         <div class="flex flex-wrap gap-2">
           <UButton color="primary" @click="createProject"
             >+ New project</UButton
@@ -1901,7 +1903,7 @@ onBeforeUnmount(() => {
               v-for="extension in handWrappedExtensions"
               :key="extension.id"
               class="flex min-h-32 flex-col justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-sm"
-              :style="{'--extension-color': extension.color}"
+              :style="{ '--extension-color': extension.color }"
             >
               <div class="flex min-w-0 items-start gap-3">
                 <span
@@ -1981,7 +1983,7 @@ onBeforeUnmount(() => {
                     class="min-w-0 flex-1"
                     :model-value="object.args"
                     placeholder="constructor arguments (optional)"
-                    :ui="{base: 'font-mono text-xs'}"
+                    :ui="{ base: 'font-mono text-xs' }"
                     @update:model-value="
                       updateExtensionObjectArgs(object.id, $event)
                     "
@@ -2091,7 +2093,7 @@ onBeforeUnmount(() => {
         </div>
       </template>
 
-      <template #footer="{close}">
+      <template #footer="{ close }">
         <UButton
           color="neutral"
           variant="ghost"

@@ -93,7 +93,7 @@ export const registerTypedVariableCategory = (
 
       const allVars = ws.getVariableMap().getAllVariables();
       if (allVars.length > 0) {
-        contents.push({kind: 'sep'});
+        contents.push({ kind: 'sep' });
         const varBlocks = Blockly.Variables.jsonFlyoutCategoryBlocks(
           ws,
           allVars,
@@ -102,10 +102,10 @@ export const registerTypedVariableCategory = (
         contents.push(...varBlocks);
       }
 
-      contents.push({kind: 'sep'});
-      contents.push({kind: 'block', type: 'sc_new_object'});
-      contents.push({kind: 'block', type: 'sc_object_call'});
-      contents.push({kind: 'block', type: 'sc_object_value'});
+      contents.push({ kind: 'sep' });
+      contents.push({ kind: 'block', type: 'sc_new_object' });
+      contents.push({ kind: 'block', type: 'sc_object_call' });
+      contents.push({ kind: 'block', type: 'sc_object_value' });
 
       return contents;
     },

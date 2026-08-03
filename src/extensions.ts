@@ -11,7 +11,7 @@
  * class in the generated catalog.
  */
 import * as Blockly from 'blockly/core';
-import {Order, type PythonGenerator} from 'blockly/python';
+import { Order, type PythonGenerator } from 'blockly/python';
 import {
   loadCatalog,
   returnsValue,
@@ -23,7 +23,7 @@ import {
   A301_INSTANCE_METHODS,
   A301_VALUE_METHODS,
 } from './generated/a301';
-import {screamingSnakeCase, snakeCase} from './pythonNaming';
+import { screamingSnakeCase, snakeCase } from './pythonNaming';
 import {
   extensionInstanceReference,
   registerPythonImport,
@@ -133,7 +133,7 @@ const scExtCall = {
       text: 'self.device',
       spellcheck: false,
     },
-    {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
+    { type: 'field_label_serializable', name: 'METHOD', text: 'method' },
   ],
   previousStatement: 'Command',
   nextStatement: 'Command',
@@ -153,7 +153,7 @@ const scExtValue = {
       text: 'self.device',
       spellcheck: false,
     },
-    {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
+    { type: 'field_label_serializable', name: 'METHOD', text: 'method' },
   ],
   output: null,
   colour: extensionColour,
@@ -166,8 +166,8 @@ const scExtEnum = {
   type: 'sc_ext_enum',
   message0: '%1 . %2',
   args0: [
-    {type: 'field_label_serializable', name: 'ENUM', text: 'Enum'},
-    {type: 'field_label_serializable', name: 'VALUE', text: 'value'},
+    { type: 'field_label_serializable', name: 'ENUM', text: 'Enum' },
+    { type: 'field_label_serializable', name: 'VALUE', text: 'value' },
   ],
   output: null,
   colour: extensionColour,
@@ -182,10 +182,10 @@ const scExtInstanceCall = {
   type: 'sc_ext_instance_call',
   message0: 'call %1 %2 %3 . %4',
   args0: [
-    {type: 'field_label', text: 'on'},
-    {type: 'field_label_serializable', name: 'CLASS', text: 'Object'},
-    {type: 'field_extension_instance', name: 'INSTANCE'},
-    {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
+    { type: 'field_label', text: 'on' },
+    { type: 'field_label_serializable', name: 'CLASS', text: 'Object' },
+    { type: 'field_extension_instance', name: 'INSTANCE' },
+    { type: 'field_label_serializable', name: 'METHOD', text: 'method' },
   ],
   previousStatement: 'Command',
   nextStatement: 'Command',
@@ -200,9 +200,9 @@ const scExtInstanceValue = {
   type: 'sc_ext_instance_value',
   message0: '%1 %2 . %3',
   args0: [
-    {type: 'field_label_serializable', name: 'CLASS', text: 'Object'},
-    {type: 'field_extension_instance', name: 'INSTANCE'},
-    {type: 'field_label_serializable', name: 'METHOD', text: 'method'},
+    { type: 'field_label_serializable', name: 'CLASS', text: 'Object' },
+    { type: 'field_extension_instance', name: 'INSTANCE' },
+    { type: 'field_label_serializable', name: 'METHOD', text: 'method' },
   ],
   output: null,
   colour: extensionColour,
@@ -343,11 +343,11 @@ extensionForBlock['sc_ext_instance_value'] = function (
 // Dynamic flyout for the Extensions category
 // ---------------------------------------------------------------------------
 
-type FlyoutItem = {kind: string; [key: string]: unknown};
+type FlyoutItem = { kind: string; [key: string]: unknown };
 
 const instanceCallBlockFor = (
   cls: ApiClass,
-  method: {name: string; args: {name: string}[]},
+  method: { name: string; args: { name: string }[] },
 ): FlyoutItem => ({
   kind: 'block',
   type: 'sc_ext_instance_call',
@@ -363,7 +363,7 @@ const instanceCallBlockFor = (
 
 const instanceValueBlockFor = (
   cls: ApiClass,
-  method: {name: string; args: {name: string}[]},
+  method: { name: string; args: { name: string }[] },
 ): FlyoutItem => ({
   kind: 'block',
   type: 'sc_ext_instance_value',
@@ -384,7 +384,7 @@ const enumBlocksFor = (cls: ApiClass): FlyoutItem[] => {
       items.push({
         kind: 'block',
         type: 'sc_ext_enum',
-        fields: {ENUM: enumData.name, VALUE: value},
+        fields: { ENUM: enumData.name, VALUE: value },
       });
     }
   }
@@ -448,7 +448,7 @@ export const buildExtensionsFlyout = (): FlyoutItem[] => {
 
   for (const className of loaded) {
     const cls = classIndex?.get(className);
-    contents.push({kind: 'label', text: className});
+    contents.push({ kind: 'label', text: className });
     if (className === A301_CLASS_NAME) {
       contents.push(...a301BlocksFor());
       continue;

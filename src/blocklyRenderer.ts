@@ -172,4 +172,4 @@ export const registerSystemCoreRenderer = () => {
   registered = true;
 };
 
-export {RENDERER_NAME as systemCoreRendererName};
+export { RENDERER_NAME as systemCoreRendererName };

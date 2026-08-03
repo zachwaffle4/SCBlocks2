@@ -1,5 +1,5 @@
-import {EXTENSIONS_TOOLBOX_CATEGORY} from './extensions';
-import {SC_TYPED_VARIABLE_CATEGORY} from './variableCategory';
+import { EXTENSIONS_TOOLBOX_CATEGORY } from './extensions';
+import { SC_TYPED_VARIABLE_CATEGORY } from './variableCategory';
 
 type ToolboxInput = {
   shadow?: ToolboxBlock;
@@ -31,7 +31,7 @@ const numberShadow = (value: number): ToolboxBlock => ({
 const booleanBlock = (value = 'TRUE'): ToolboxBlock => ({
   kind: 'block',
   type: 'logic_boolean',
-  fields: {BOOL: value},
+  fields: { BOOL: value },
 });
 
 const absoluteValueBlock = (): ToolboxBlock => ({
@@ -128,7 +128,7 @@ const ifBlock = (condition: ToolboxBlock): ToolboxBlock => ({
   kind: 'block',
   type: 'sc_if',
   inputs: {
-    IF0: {block: condition},
+    IF0: { block: condition },
   },
 });
 
@@ -441,7 +441,7 @@ const sensorGreaterThanBlock = (value: number): ToolboxBlock => ({
 const gamepadButtonBlock = (button: string, state: string): ToolboxBlock => ({
   kind: 'block',
   type: 'sc_gamepad_button',
-  fields: {GAMEPAD: '1', BUTTON: button, STATE: state},
+  fields: { GAMEPAD: '1', BUTTON: button, STATE: state },
 });
 
 // Only shown in Teleop opmodes (see buildToolbox / App.vue): reading driver
@@ -456,12 +456,12 @@ const gamepadCategory = {
     {
       kind: 'block',
       type: 'sc_gamepad_axis',
-      fields: {GAMEPAD: '1', AXIS: 'LeftY'},
+      fields: { GAMEPAD: '1', AXIS: 'LeftY' },
     },
     {
       kind: 'block',
       type: 'sc_gamepad_trigger',
-      fields: {GAMEPAD: '1', SIDE: 'Left'},
+      fields: { GAMEPAD: '1', SIDE: 'Left' },
     },
     {
       kind: 'block',
@@ -533,7 +533,7 @@ const revSensorsCategory = {
 // react to the same readings with their `if` and `wait until` command blocks;
 // keeping the hats out here avoids offering an event that has no owner in a
 // subsystem class.
-const mechanismSensorCategory = <T extends {contents: unknown[]}>(
+const mechanismSensorCategory = <T extends { contents: unknown[] }>(
   category: T,
 ) => ({
   ...category,
@@ -546,7 +546,7 @@ const mechanismSensorCategory = <T extends {contents: unknown[]}>(
         'sc_wpilib_imu_trigger',
         'sc_rev_color_sensor_color_trigger',
         'sc_rev_color_sensor_proximity_trigger',
-      ].indexOf((item as {type?: string}).type || '') === -1,
+      ].indexOf((item as { type?: string }).type || '') === -1,
   ),
 });
 
@@ -575,12 +575,12 @@ const subsystemToolbox = ({
         {
           kind: 'block',
           type: 'sc_subsystem_on_start',
-          next: {block: setMotorPowerBlock()},
+          next: { block: setMotorPowerBlock() },
         },
         {
           kind: 'block',
           type: 'sc_subsystem_on_command',
-          next: {block: setMotorPowerBlock()},
+          next: { block: setMotorPowerBlock() },
         },
       ],
     },
@@ -628,29 +628,29 @@ const subsystemToolbox = ({
         {
           kind: 'block',
           type: 'sc_wait_seconds',
-          inputs: {SECONDS: {shadow: numberShadow(1)}},
+          inputs: { SECONDS: { shadow: numberShadow(1) } },
         },
         {
           kind: 'block',
           type: 'sc_repeat_commands',
           inputs: {
-            TIMES: {shadow: numberShadow(3)},
+            TIMES: { shadow: numberShadow(3) },
           },
         },
         {
           kind: 'block',
           type: 'sc_while_commands',
           inputs: {
-            CONDITION: {shadow: booleanBlock()},
+            CONDITION: { shadow: booleanBlock() },
           },
         },
-        {kind: 'block', type: 'sc_parallel_commands'},
-        {kind: 'block', type: 'sc_race_commands'},
-        {kind: 'block', type: 'sc_deadline_commands'},
+        { kind: 'block', type: 'sc_parallel_commands' },
+        { kind: 'block', type: 'sc_race_commands' },
+        { kind: 'block', type: 'sc_deadline_commands' },
         {
           kind: 'block',
           type: 'sc_wait_until',
-          inputs: {CONDITION: {block: booleanBlock()}},
+          inputs: { CONDITION: { block: booleanBlock() } },
         },
       ],
     },
@@ -668,20 +668,20 @@ const subsystemToolbox = ({
           kind: 'block',
           type: 'math_arithmetic',
           inputs: {
-            A: {shadow: numberShadow(1)},
-            B: {shadow: numberShadow(1)},
+            A: { shadow: numberShadow(1) },
+            B: { shadow: numberShadow(1) },
           },
         },
         absoluteValueBlock(),
         {
           kind: 'block',
           type: 'math_number_property',
-          inputs: {NUMBER_TO_CHECK: {shadow: numberShadow(0)}},
+          inputs: { NUMBER_TO_CHECK: { shadow: numberShadow(0) } },
         },
-        {kind: 'block', type: 'logic_compare'},
+        { kind: 'block', type: 'logic_compare' },
         isWithinBlock(),
-        {kind: 'block', type: 'logic_operation'},
-        {kind: 'block', type: 'logic_boolean'},
+        { kind: 'block', type: 'logic_operation' },
+        { kind: 'block', type: 'logic_boolean' },
       ],
     },
     {
@@ -839,9 +839,9 @@ export const buildToolbox = ({
                   },
                 },
               },
-              {kind: 'block', type: 'sc_parallel_commands'},
-              {kind: 'block', type: 'sc_race_commands'},
-              {kind: 'block', type: 'sc_deadline_commands'},
+              { kind: 'block', type: 'sc_parallel_commands' },
+              { kind: 'block', type: 'sc_race_commands' },
+              { kind: 'block', type: 'sc_deadline_commands' },
               {
                 kind: 'block',
                 type: 'sc_wait_until',
@@ -942,4 +942,4 @@ export const buildToolbox = ({
 
 // Default toolbox (no gamepad category). App.vue swaps in the gamepad variant
 // when the active opmode is a Teleop.
-export const toolbox = buildToolbox({includeGamepad: false});
+export const toolbox = buildToolbox({ includeGamepad: false });

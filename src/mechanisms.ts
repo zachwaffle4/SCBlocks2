@@ -1,6 +1,6 @@
 import * as Blockly from 'blockly/core';
-import {getDevice} from './devices';
-import type {WorkspaceState} from './opmodes';
+import { getDevice } from './devices';
+import type { WorkspaceState } from './opmodes';
 
 /**
  * A project-level commands2 subsystem made from one or more A301 motors and
@@ -56,12 +56,12 @@ export const makeMechanismState = (): WorkspaceState => ({
   blocks: {
     languageVersion: 0,
     blocks: [
-      {type: 'sc_subsystem_on_start', x: 40, y: 40},
+      { type: 'sc_subsystem_on_start', x: 40, y: 40 },
       {
         type: 'sc_subsystem_on_command',
         x: 40,
         y: 150,
-        fields: {COMMAND: 'run'},
+        fields: { COMMAND: 'run' },
       },
     ],
   },
@@ -70,21 +70,24 @@ export const makeMechanismState = (): WorkspaceState => ({
 type SerializedBlock = {
   type?: string;
   fields?: Record<string, unknown>;
-  inputs?: Record<string, {block?: SerializedBlock; shadow?: SerializedBlock}>;
-  next?: {block?: SerializedBlock};
+  inputs?: Record<
+    string,
+    { block?: SerializedBlock; shadow?: SerializedBlock }
+  >;
+  next?: { block?: SerializedBlock };
 };
 
 const numberShadow = (value: number): SerializedBlock => ({
   type: 'math_number',
-  fields: {NUM: value},
+  fields: { NUM: value },
 });
 
 const numericSensorCondition = (sensor: SerializedBlock): SerializedBlock => ({
   type: 'logic_compare',
-  fields: {OP: 'GT'},
+  fields: { OP: 'GT' },
   inputs: {
-    A: {block: sensor},
-    B: {shadow: numberShadow(0)},
+    A: { block: sensor },
+    B: { shadow: numberShadow(0) },
   },
 });
 
@@ -143,9 +146,9 @@ const directMotorCommands = (
   const next = block.next;
   const commands: SerializedBlock[] = motorIds.map((id) => ({
     type: type.endsWith('set_power') ? 'sc_motor_set_power' : 'sc_motor_stop',
-    fields: {DEVICE: id},
+    fields: { DEVICE: id },
     ...(type.endsWith('set_power') && block.inputs?.POWER
-      ? {inputs: {POWER: block.inputs.POWER}}
+      ? { inputs: { POWER: block.inputs.POWER } }
       : {}),
   }));
 
@@ -155,14 +158,16 @@ const directMotorCommands = (
     Object.assign(block, {
       type: 'sc_wait_seconds',
       fields: undefined,
-      inputs: {SECONDS: {shadow: {type: 'math_number', fields: {NUM: 0}}}},
+      inputs: {
+        SECONDS: { shadow: { type: 'math_number', fields: { NUM: 0 } } },
+      },
       next,
     });
     return;
   }
 
   for (let index = 0; index < commands.length - 1; index += 1) {
-    commands[index].next = {block: commands[index + 1]};
+    commands[index].next = { block: commands[index + 1] };
   }
   commands[commands.length - 1].next = next;
   Object.assign(block, commands[0]);
@@ -189,7 +194,7 @@ const migrateSubsystemState = (
       directMotorCommands(block.type, block, motorIds);
     } else if (block.type === 'sc_motor_group') {
       block.type = 'math_number';
-      block.fields = {NUM: 0};
+      block.fields = { NUM: 0 };
       block.inputs = undefined;
     }
     migrateSensorConditions(block);
@@ -201,8 +206,8 @@ const migrateSubsystemState = (
     }
     visit(block.next?.block);
   };
-  const blocks = (migrated as {blocks?: {blocks?: SerializedBlock[]}}).blocks
-    ?.blocks;
+  const blocks = (migrated as { blocks?: { blocks?: SerializedBlock[] } })
+    .blocks?.blocks;
   for (const block of blocks || []) visit(block);
   return migrated;
 };
@@ -305,7 +310,7 @@ export const mechanismCommandNames = (mechanism: Mechanism) => {
     }
     visit(block.next?.block);
   };
-  const root = (mechanism.state as {blocks?: {blocks?: SerializedBlock[]}})
+  const root = (mechanism.state as { blocks?: { blocks?: SerializedBlock[] } })
     .blocks?.blocks;
   for (const block of root || []) visit(block);
   return [...names];

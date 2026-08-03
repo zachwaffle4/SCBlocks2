@@ -25,7 +25,7 @@ export default [
       // when they are not deliberately underscore-prefixed.
       '@typescript-eslint/no-unused-vars': [
         'error',
-        {argsIgnorePattern: '^_', varsIgnorePattern: '^_'},
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
       // Blockly's runtime types are loose in places (mutators, fields), so an
       // explicit `any` is sometimes the honest annotation.

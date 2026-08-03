@@ -95,7 +95,7 @@ export const addDevice = (partial: Partial<Device> = {}): Device => {
 
 export const updateDevice = (id: string, patch: Partial<Device>) => {
   devices = devices.map((device) =>
-    device.id === id ? {...device, ...patch, id: device.id} : device,
+    device.id === id ? { ...device, ...patch, id: device.id } : device,
   );
   notify();
 };
@@ -188,7 +188,7 @@ export const defaultMovementMotorsConfig = (): MovementMotorsConfig => ({
 });
 
 const normalizeDifferential = (
-  config: Partial<Extract<MovementMotorsConfig, {kind: 'differential'}>>,
+  config: Partial<Extract<MovementMotorsConfig, { kind: 'differential' }>>,
 ): MovementMotorsConfig => ({
   kind: 'differential',
   leftDeviceId: config.leftDeviceId || deviceIdAt(0),
@@ -196,7 +196,7 @@ const normalizeDifferential = (
 });
 
 const normalizeMecanum = (
-  config: Partial<Extract<MovementMotorsConfig, {kind: 'mecanum'}>>,
+  config: Partial<Extract<MovementMotorsConfig, { kind: 'mecanum' }>>,
 ): MovementMotorsConfig => ({
   kind: 'mecanum',
   frontLeftDeviceId: config.frontLeftDeviceId || deviceIdAt(0),
@@ -268,7 +268,7 @@ export const movementMotorsSummary = (value: string | null | undefined) => {
 };
 
 const fromDifferentialToMecanum = (
-  config: Extract<MovementMotorsConfig, {kind: 'differential'}>,
+  config: Extract<MovementMotorsConfig, { kind: 'differential' }>,
 ) =>
   normalizeMecanum({
     kind: 'mecanum',
@@ -279,7 +279,7 @@ const fromDifferentialToMecanum = (
   });
 
 const fromMecanumToDifferential = (
-  config: Extract<MovementMotorsConfig, {kind: 'mecanum'}>,
+  config: Extract<MovementMotorsConfig, { kind: 'mecanum' }>,
 ) =>
   normalizeDifferential({
     kind: 'differential',
@@ -319,7 +319,7 @@ export class FieldMovementMotors extends Blockly.Field<string> {
   }
 
   static fromJson(config: Blockly.FieldConfig): FieldMovementMotors {
-    const value = (config as Blockly.FieldConfig & {value?: string}).value;
+    const value = (config as Blockly.FieldConfig & { value?: string }).value;
     return new FieldMovementMotors(value ?? movementMotorsValue());
   }
 

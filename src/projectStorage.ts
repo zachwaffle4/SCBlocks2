@@ -1,8 +1,8 @@
-import type {Device} from './devices';
-import type {ExtensionInstance} from './extensionInstances';
-import type {Mechanism} from './mechanisms';
-import type {OpModeTab} from './opmodes';
-import type {RobotMode} from './robotMode';
+import type { Device } from './devices';
+import type { ExtensionInstance } from './extensionInstances';
+import type { Mechanism } from './mechanisms';
+import type { OpModeTab } from './opmodes';
+import type { RobotMode } from './robotMode';
 
 /** Versioned, multi-project browser persistence for SystemCore Blocks. */
 export const PROJECT_STORE_KEY = 'systemcore-blocks.projects.v1';
@@ -183,7 +183,7 @@ export const setActiveStoredProject = (id: string) => {
 
 export const exportStoredProject = (project: StoredProject) =>
   JSON.stringify(
-    {format: 'systemcore-blocks-project', version: 1, project},
+    { format: 'systemcore-blocks-project', version: 1, project },
     null,
     2,
   );

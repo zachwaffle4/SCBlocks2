@@ -4,10 +4,10 @@
 //
 // Regenerate with:
 //   npm run generate:a301 -- [path/to/robotpy_data.json] [out.ts]
-import {readFileSync, writeFileSync} from 'node:fs';
-import {resolve} from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-import {snakeCase} from './python-naming.mjs';
+import { snakeCase } from './python-naming.mjs';
 
 const inputPath = resolve(
   process.argv[2] || 'python_tools/generated/robotpy_data.json',
