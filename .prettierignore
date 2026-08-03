@@ -1,0 +1,15 @@
+# Auto-generated API catalogs — regenerate with npm run generate:api / generate:a301.
+src/generated/
+
+# Python side: sources are formatted by Python tooling, and .venv is vendored.
+python_tools/
+runtime_python/
+
+# Build output, generated typings, and lockfiles.
+dist/
+.wrangler/
+.idea/
+auto-imports.d.ts
+components.d.ts
+package-lock.json
+bun.lock
