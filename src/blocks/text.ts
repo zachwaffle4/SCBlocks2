@@ -1553,7 +1553,7 @@ const scGamepadAxis = {
   ],
   output: 'Number',
   colour: sensingColour,
-  tooltip: 'Reads a gamepad joystick axis (-1 to 1).',
+  tooltip: 'Reads a gamepad joystick axis, as a percent (-100 to 100).',
   helpUrl: '',
 };
 
@@ -1573,7 +1573,7 @@ const scGamepadTrigger = {
   ],
   output: 'Number',
   colour: sensingColour,
-  tooltip: 'Reads a gamepad analog trigger (0 to 1).',
+  tooltip: 'Reads a gamepad analog trigger, as a percent (0 to 100).',
   helpUrl: '',
 };
 

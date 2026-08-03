@@ -443,6 +443,80 @@ assertIncludes(gamepadCode, 'self.gamepad2 = wpilib.Gamepad(1)');
 assertIncludes(gamepadCode, 'self.gamepad2.get_face_right_button_pressed()');
 gamepadTrigger.dispose(true);
 
+// Axes and triggers are reported as percentages so they can drive a power block
+// directly. Scaling up by 100 and straight back down again is recognised at
+// generation time, so the robot loop just reads the axis.
+const axisDrive = workspace.newBlock('sc_motor_set_power');
+setDevice(axisDrive);
+const driveAxis = workspace.newBlock('sc_gamepad_axis');
+driveAxis.setFieldValue('LeftY', 'AXIS');
+connectValue(axisDrive, 'POWER', driveAxis);
+pythonGenerator.init(workspace);
+const axisDriveCode = String(pythonGenerator.blockToCode(axisDrive));
+assertIncludes(
+  axisDriveCode,
+  'self.drive_motor.set_throttle(max(-1, min(1, self.gamepad1.get_left_y())))',
+);
+assert(
+  !axisDriveCode.includes('100'),
+  'A gamepad axis driving a motor should not scale by 100 and back',
+);
+axisDrive.dispose(true);
+
+// The same cancellation applies to a hand-built "x * 100", whatever x is.
+const scaledDrive = workspace.newBlock('sc_motor_set_power');
+setDevice(scaledDrive);
+const scaled = workspace.newBlock('math_arithmetic');
+scaled.setFieldValue('MULTIPLY', 'OP');
+const scaledTrigger = workspace.newBlock('sc_gamepad_trigger');
+scaledTrigger.setFieldValue('Right', 'SIDE');
+connectValue(scaled, 'A', scaledTrigger);
+connectValue(scaled, 'B', numberBlock(100));
+connectValue(scaledDrive, 'POWER', scaled);
+pythonGenerator.init(workspace);
+assertIncludes(
+  String(pythonGenerator.blockToCode(scaledDrive)),
+  'self.drive_motor.set_throttle(max(-1, min(1, self.gamepad1.get_right_trigger() * 100)))',
+);
+scaledDrive.dispose(true);
+
+// A percentage that is not a scaled-up throttle still converts as before.
+const literalDrive = workspace.newBlock('sc_motor_set_power');
+setDevice(literalDrive);
+connectValue(literalDrive, 'POWER', numberBlock(65));
+pythonGenerator.init(workspace);
+assertIncludes(
+  String(pythonGenerator.blockToCode(literalDrive)),
+  'self.drive_motor.set_throttle(max(-1, min(1, (65) / 100.0)))',
+);
+literalDrive.dispose(true);
+
+const axisRead = workspace.newBlock('sc_gamepad_axis');
+axisRead.setFieldValue('RightX', 'AXIS');
+const triggerRead = workspace.newBlock('sc_gamepad_trigger');
+triggerRead.setFieldValue('Left', 'SIDE');
+pythonGenerator.init(workspace);
+assertIncludes(
+  String(pythonGenerator.blockToCode(axisRead)[0]),
+  'self.gamepad1.get_right_x() * 100',
+);
+assertIncludes(
+  String(pythonGenerator.blockToCode(triggerRead)[0]),
+  'self.gamepad1.get_left_trigger() * 100',
+);
+// The percent scaling has to survive being embedded in a larger expression.
+const halfAxis = workspace.newBlock('math_arithmetic');
+halfAxis.setFieldValue('DIVIDE', 'OP');
+connectValue(halfAxis, 'A', axisRead);
+connectValue(halfAxis, 'B', numberBlock(2));
+pythonGenerator.init(workspace);
+assertIncludes(
+  String(pythonGenerator.blockToCode(halfAxis)[0]),
+  '(self.gamepad1.get_right_x() * 100) / 2',
+);
+halfAxis.dispose(true);
+triggerRead.dispose(true);
+
 // The gamepad category is Teleop-only: present when requested, absent from the
 // default toolbox.
 const teleopCategoryNames = buildToolbox({ includeGamepad: true })
@@ -655,6 +729,70 @@ assert(
   migratedTrigger?.inputs?.CONDITION?.block?.type === 'logic_compare',
   'Stale numeric sensor condition should be wrapped in a comparison',
 );
+// Projects written before gamepad axes reported percentages scaled them by hand.
+// The multiplication is unwrapped on load so the reading is not scaled twice.
+const staleGamepadScalingState = makeOpmodeState('Teleop', 'Gamepad Scaling');
+(
+  staleGamepadScalingState as {
+    blocks: { blocks: Array<Record<string, unknown>> };
+  }
+).blocks.blocks.push({
+  type: 'sc_on_start',
+  next: {
+    block: {
+      type: 'sc_motor_set_power',
+      fields: { DEVICE: device.id },
+      inputs: {
+        POWER: {
+          block: {
+            type: 'math_arithmetic',
+            fields: { OP: 'MULTIPLY' },
+            inputs: {
+              A: {
+                block: {
+                  type: 'sc_gamepad_axis',
+                  fields: { GAMEPAD: '1', AXIS: 'LeftY' },
+                },
+              },
+              B: { shadow: { type: 'math_number', fields: { NUM: 100 } } },
+            },
+          },
+        },
+      },
+    },
+  },
+});
+const migratedGamepadScaling = migrateWorkspaceState(
+  staleGamepadScalingState,
+) as {
+  blocks: {
+    blocks: Array<{
+      type?: string;
+      next?: {
+        block?: {
+          inputs?: Record<
+            string,
+            { block?: { type?: string; inputs?: Record<string, unknown> } }
+          >;
+        };
+      };
+    }>;
+  };
+};
+// makeOpmodeState already seeds an sc_on_start hat, so match on the stack that
+// carries the motor command rather than on the first hat in the list.
+const migratedPower = migratedGamepadScaling.blocks.blocks
+  .map((block) => block.next?.block)
+  .find((block) => block?.inputs?.POWER)?.inputs?.POWER?.block;
+assert(
+  migratedPower?.type === 'sc_gamepad_axis',
+  'A hand-written "axis * 100" should collapse to the axis block itself',
+);
+assert(
+  migratedPower?.inputs === undefined,
+  'The unwrapped axis block should not keep the multiplication operands',
+);
+
 const migratedWorkspace = new Blockly.Workspace();
 Blockly.serialization.workspaces.load(
   migratedSensorCondition,

@@ -13,4 +13,4 @@
 import * as Blockly from 'blockly/core';
 import * as En from 'blockly/msg/en';
 
-Blockly.setLocale(En as unknown as {[key: string]: string});
+Blockly.setLocale(En as unknown as { [key: string]: string });

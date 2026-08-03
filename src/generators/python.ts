@@ -149,8 +149,17 @@ const indentCode = (code: string, spaces: number) => {
     .join('\n');
 };
 
+// Powers are percentages everywhere a student can see them, so the -1..1 values
+// the hardware wants are converted at the boundary.
 const percentToThrottle = (power: string) =>
   `max(-1, min(1, (${power}) / 100.0))`;
+
+// The other half of that boundary: WPILib reports axes and triggers in -1..1, so
+// gamepad readings are scaled up to match the percentages every power block, and
+// every number a student types, is written in.
+const throttleToPercent = (reading: string) => `${reading} * 100`;
+
+const clampThrottle = (throttle: string) => `max(-1, min(1, ${throttle}))`;
 
 // --- Block-method extraction ------------------------------------------------
 // Each command's action becomes a named method (def block_N) on the opmode
@@ -678,6 +687,66 @@ const gamepadPort = (gamepad: string) => (gamepad === '2' ? '1' : '0');
 
 const gamepadReference = (block: Blockly.Block) =>
   `self.gamepad${gamepadNumber(block)}`;
+
+const GAMEPAD_ANALOG_TYPES = new Set(['sc_gamepad_axis', 'sc_gamepad_trigger']);
+
+// The bare -1..1 WPILib call behind a gamepad axis or trigger block, before the
+// block's generator scales it into a percent.
+const gamepadAnalogReading = (block: Blockly.Block) =>
+  block.type === 'sc_gamepad_trigger'
+    ? `${gamepadReference(block)}.get_${snakeCase(block.getFieldValue('SIDE'))}_trigger()`
+    : `${gamepadReference(block)}.get_${snakeCase(block.getFieldValue('AXIS'))}()`;
+
+const literalNumber = (block: Blockly.Block | null) => {
+  if (!block || block.type !== 'math_number') return null;
+  const value = Number(block.getFieldValue('NUM'));
+  return Number.isFinite(value) ? value : null;
+};
+
+// For `x * 100` (either operand order), the code for x — whose value is already
+// the throttle the socket is about to divide back down to.
+const multiplicandOfHundred = (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+) => {
+  if (block.type !== 'math_arithmetic') return null;
+  if (block.getFieldValue('OP') !== 'MULTIPLY') return null;
+  if (literalNumber(block.getInputTargetBlock('B')) === 100) {
+    return valueToCode(block, generator, 'A', '0');
+  }
+  if (literalNumber(block.getInputTargetBlock('A')) === 100) {
+    return valueToCode(block, generator, 'B', '0');
+  }
+  return null;
+};
+
+/**
+ * Builds the throttle argument for a power socket: percent in, -1..1 out.
+ *
+ * Two shapes cancel that division exactly, and this code runs on every loop
+ * iteration, so they are recognised at generation time instead of being emitted
+ * as `x * 100 / 100.0` for CPython to redo forever:
+ *
+ *   - a gamepad axis or trigger, whose generator scales -1..1 up by 100
+ *   - any hand-built `x * 100`
+ *
+ * The clamp stays in both cases: it is what keeps a surprising value from
+ * reaching the motor.
+ */
+const powerToThrottle = (
+  block: Blockly.Block,
+  generator: PythonGenerator,
+  inputName: string,
+  fallback = '0',
+) => {
+  const source = block.getInputTargetBlock(inputName);
+  if (source && GAMEPAD_ANALOG_TYPES.has(source.type)) {
+    return clampThrottle(gamepadAnalogReading(source));
+  }
+  const unscaled = source && multiplicandOfHundred(source, generator);
+  if (unscaled) return clampThrottle(unscaled);
+  return percentToThrottle(valueToCode(block, generator, inputName, fallback));
+};
 
 // post4 also renamed the compass-point face buttons to directions:
 // getSouthFaceButton() -> get_face_down_button(). Saved projects still store the
@@ -1233,8 +1302,8 @@ forBlock['sc_motor_set_power'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const power = valueToCode(block, generator, 'POWER', '0');
-  return `${deviceReference(block, generator)}.set_throttle(${percentToThrottle(power)})\n`;
+  const throttle = powerToThrottle(block, generator, 'POWER');
+  return `${deviceReference(block, generator)}.set_throttle(${throttle})\n`;
 };
 
 forBlock['sc_motor_run_for_seconds'] = function (
@@ -1242,9 +1311,9 @@ forBlock['sc_motor_run_for_seconds'] = function (
   generator: PythonGenerator,
 ) {
   const motor = deviceReference(block, generator);
-  const power = valueToCode(block, generator, 'POWER', '50');
+  const throttle = powerToThrottle(block, generator, 'POWER', '50');
   const seconds = valueToCode(block, generator, 'SECONDS', '1');
-  return `${motor}.set_throttle(${percentToThrottle(power)})\nawait wait(${seconds})\n${motor}.set_throttle(0)\n`;
+  return `${motor}.set_throttle(${throttle})\nawait wait(${seconds})\n${motor}.set_throttle(0)\n`;
 };
 
 forBlock['sc_motor_stop'] = function (
@@ -1281,8 +1350,8 @@ forBlock['sc_mechanism_set_power'] = function (
   const mechanism = getMechanism(block.getFieldValue('MECHANISM'));
   if (!mechanism) return '';
   const name = mechanismPythonNames().get(mechanism.id) || 'mechanism';
-  const power = valueToCode(block, generator, 'POWER', '0');
-  return `self.${name}.set_power(${percentToThrottle(power)})\n`;
+  const throttle = powerToThrottle(block, generator, 'POWER');
+  return `self.${name}.set_power(${throttle})\n`;
 };
 
 forBlock['sc_mechanism_stop'] = function (block: Blockly.Block) {
@@ -1304,18 +1373,18 @@ forBlock['sc_drivetrain_arcade_drive'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const forward = valueToCode(block, generator, 'FORWARD', '0');
-  const turn = valueToCode(block, generator, 'TURN', '0');
-  return `${movementDriveReference()}.arcade_drive(${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
+  const forward = powerToThrottle(block, generator, 'FORWARD');
+  const turn = powerToThrottle(block, generator, 'TURN');
+  return `${movementDriveReference()}.arcade_drive(${forward}, ${turn})\n`;
 };
 
 forBlock['sc_drivetrain_tank_drive'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const leftPower = valueToCode(block, generator, 'LEFT_POWER', '0');
-  const rightPower = valueToCode(block, generator, 'RIGHT_POWER', '0');
-  return `${movementDriveReference()}.tank_drive(${percentToThrottle(leftPower)}, ${percentToThrottle(rightPower)})\n`;
+  const leftPower = powerToThrottle(block, generator, 'LEFT_POWER');
+  const rightPower = powerToThrottle(block, generator, 'RIGHT_POWER');
+  return `${movementDriveReference()}.tank_drive(${leftPower}, ${rightPower})\n`;
 };
 
 forBlock['sc_drivetrain_stop'] = function () {
@@ -1326,10 +1395,10 @@ forBlock['sc_mecanum_drive'] = function (
   block: Blockly.Block,
   generator: PythonGenerator,
 ) {
-  const sideways = valueToCode(block, generator, 'SIDEWAYS', '0');
-  const forward = valueToCode(block, generator, 'FORWARD', '0');
-  const turn = valueToCode(block, generator, 'TURN', '0');
-  return `${movementDriveReference()}.drive_cartesian(${percentToThrottle(sideways)}, ${percentToThrottle(forward)}, ${percentToThrottle(turn)})\n`;
+  const sideways = powerToThrottle(block, generator, 'SIDEWAYS');
+  const forward = powerToThrottle(block, generator, 'FORWARD');
+  const turn = powerToThrottle(block, generator, 'TURN');
+  return `${movementDriveReference()}.drive_cartesian(${sideways}, ${forward}, ${turn})\n`;
 };
 
 forBlock['sc_mecanum_stop'] = function () {
@@ -1589,19 +1658,11 @@ forBlock['sc_gamepad_button'] = function (block: Blockly.Block) {
 };
 
 forBlock['sc_gamepad_axis'] = function (block: Blockly.Block) {
-  const axis = block.getFieldValue('AXIS');
-  return [
-    `${gamepadReference(block)}.get_${snakeCase(axis)}()`,
-    Order.FUNCTION_CALL,
-  ];
+  return [throttleToPercent(gamepadAnalogReading(block)), Order.MULTIPLICATIVE];
 };
 
 forBlock['sc_gamepad_trigger'] = function (block: Blockly.Block) {
-  const side = block.getFieldValue('SIDE');
-  return [
-    `${gamepadReference(block)}.get_${snakeCase(side)}_trigger()`,
-    Order.FUNCTION_CALL,
-  ];
+  return [throttleToPercent(gamepadAnalogReading(block)), Order.MULTIPLICATIVE];
 };
 
 forBlock['sc_a301_advanced_call'] = function (

@@ -124,6 +124,49 @@ const legacyMotorGroupIds = (value: unknown) => {
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
+const GAMEPAD_ANALOG_BLOCKS = new Set([
+  'sc_gamepad_axis',
+  'sc_gamepad_trigger',
+]);
+
+const isHundred = (block: SerializedBlock | undefined) =>
+  block?.type === 'math_number' && Number(block.fields?.NUM) === 100;
+
+const gamepadAnalogBlock = (input: SerializedInput | undefined) => {
+  const block = input?.block ?? input?.shadow;
+  return block && GAMEPAD_ANALOG_BLOCKS.has(block.type ?? '') ? block : null;
+};
+
+/**
+ * Gamepad axes and triggers used to be reported in WPILib's -1..1, so projects
+ * scaled them by hand to feed the percent-based power blocks. They now report
+ * percentages directly, which would make `axis * 100` scale twice — so the
+ * multiplication is unwrapped, leaving the gamepad block in its place.
+ */
+const migrateGamepadPercentScaling = (block: SerializedBlock) => {
+  if (block.type !== 'math_arithmetic') return;
+  if (block.fields?.OP !== 'MULTIPLY') return;
+
+  const inputs = block.inputs ?? {};
+  const gamepad = gamepadAnalogBlock(inputs.A) ?? gamepadAnalogBlock(inputs.B);
+  if (!gamepad) return;
+
+  const other =
+    gamepadAnalogBlock(inputs.A) === gamepad
+      ? (inputs.B?.block ?? inputs.B?.shadow)
+      : (inputs.A?.block ?? inputs.A?.shadow);
+  if (!isHundred(other)) return;
+
+  const replacement = clone(gamepad);
+  block.type = replacement.type;
+  block.fields = replacement.fields;
+  if (replacement.inputs) {
+    block.inputs = replacement.inputs;
+  } else {
+    delete block.inputs;
+  }
+};
+
 const migrateMotorGroupCommand = (block: SerializedBlock) => {
   const group = block.inputs?.GROUP?.block || block.inputs?.GROUP?.shadow;
   const motorIds = legacyMotorGroupIds(group?.fields?.MOTORS);
@@ -165,6 +208,8 @@ const migrateSerializedBlock = (block: SerializedBlock | undefined) => {
     block.fields = { NUM: 0 };
     block.inputs = undefined;
   }
+
+  migrateGamepadPercentScaling(block);
 
   const inputs = block.inputs ?? {};
   const condition = inputs.CONDITION;
